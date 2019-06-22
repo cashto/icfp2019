@@ -15,7 +15,7 @@ namespace Solver
         public Point Position { get; private set; }
         public List<Point> Robot { get; private set; }
         public List<char> Boosts { get; private set; }
-        public int UnpaintedCount { get; private set; }
+        public int UnpaintedCount { get; set; }
         public int Direction { get; private set; }
         public int BoostsCollected { get; private set; }
 
@@ -153,8 +153,6 @@ namespace Solver
                     newState.Paint(undo);
                     return Tuple.Create(newState, undo);
 
-                //case 'B': // attach manip
-
                 case 'F': // fast wheels
                     if (!Boosts.Any(i => i == Board.FastWheels))
                     {
@@ -231,6 +229,20 @@ namespace Solver
             return Tuple.Create(this, undo);
         }
 
+        public Tuple<State, BoardUndo> AddManipulator(Point where)
+        {
+            var newState = CloneNextStep();
+            newState.Robot = newState.Robot.ToList();
+            newState.Robot.Add(where);
+            newState.Boosts = newState.Boosts.ToList();
+            newState.Boosts.Remove(Board.Manipulator);
+
+            var undo = new BoardUndo();
+            newState.Paint(undo);
+
+            return Tuple.Create(newState, undo);
+        }
+
         private void Paint(BoardUndo undo)
         {
             var initialCount = undo.Count;
@@ -238,10 +250,53 @@ namespace Solver
             Board.Paint(Position, undo);
             foreach (var dir in Robot)
             {
-                Board.Paint(Position + dir, undo);
+                if (Blockers(dir).All(i => !Board.IsWall(Position + i)))
+                {
+                    Board.Paint(Position + dir, undo);
+                }
             }
 
             UnpaintedCount -= undo.Count - initialCount;
+        }
+
+        private static readonly List<Point> EmptyPointList = new List<Point>();
+        public static IEnumerable<Point> Blockers(Point p)
+        {
+            if (Math.Abs(p.X) < 2 && Math.Abs(p.Y) < 2)
+            {
+                return EmptyPointList;
+            }
+            else if (p.X < 0)
+            {
+                return Blockers(new Point(-p.X, p.Y)).Select(i => new Point(-i.X, i.Y));
+            }
+            else if (p.Y < 0)
+            {
+                return Blockers(new Point(p.X, -p.Y)).Select(i => new Point(i.X, -i.Y));
+            }
+            else if (p.Y > p.X)
+            {
+                return Blockers(new Point(p.Y, p.X)).Select(i => new Point(i.Y, i.X));
+            }
+            else
+            {
+                return BasicBlockers(p);
+            }
+        }
+
+        // X > 0, Y > 0, X > Y
+        private static IEnumerable<Point> BasicBlockers(Point p)
+        {
+            if (p.Y != 1)
+            {
+                throw new NotImplementedException();
+            }
+
+            for (var i = 0; i < p.X / 2; ++i)
+            {
+                yield return new Point(1 + i, 0);
+                yield return new Point((p.X + 1) / 2 + i, 1);
+            }
         }
 
         private static IEnumerable<T> ParseList<T>(string s, char sep, Func<string, Tuple<T, string>> parser)

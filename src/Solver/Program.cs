@@ -14,13 +14,13 @@ namespace Solver
 
         static void Main(string[] args)
         {
-            var fileName = args[0];
+            var fileName = args.Length > 0 ? args[0] : @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-025.desc";
 
             var desc = File.ReadAllText(fileName);
 
             var state = new State(desc);
 
-            Solve(state, debug: false);
+            Solve(state, debug: args.Length == 0);
         }
 
         public static void Solve(State state, bool debug)
@@ -32,14 +32,20 @@ namespace Solver
                 {
                     Console.WriteLine();
                     Console.WriteLine(state);
-                    planDebug = Console.ReadKey().KeyChar == 'x';
+                    //planDebug = Console.ReadKey().KeyChar == 'x';
+                }
+
+                var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
+                if (reallyUnpainted != state.UnpaintedCount)
+                {
+                    state.UnpaintedCount = reallyUnpainted;
                 }
 
                 var plan = Plan(state, planDebug);
                 foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count) - 2))
                 {
                     Console.Out.Write(i.Move);
-                    state = state.Move(i.Move).Item1;
+                    state = i.State;
                 }
             }
         }
@@ -63,6 +69,11 @@ namespace Solver
 
         public static List<StateMetadata> Plan(State state, bool debug)
         {
+            if (state.Boosts.Contains(Board.Manipulator))
+            {
+                return ManipulatorPlan(state);
+            }
+
             string moves = "FLWASDQE";
             StateMetadata bestMove = null;
 
@@ -99,7 +110,7 @@ namespace Solver
                             State = newState.Item1,
                             OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
-                            Move = move,
+                            Move = move.ToString(),
                             PreviousState = currentMetadata
                         };
 
@@ -168,6 +179,20 @@ namespace Solver
             yield return metadata.NearbyUnpaintedCells.Value;
             yield return metadata.State.UnpaintedCount;
         }
+
+        public static List<StateMetadata> ManipulatorPlan(State state)
+        {
+            var y = (state.Robot.Count + 1) / 2 * (state.Robot.Count % 2 == 0 ? -1 : 1);
+            var point = new Point(1, y);
+            foreach (var i in Enumerable.Range(0, state.Direction))
+            {
+                point = point.RotateRight();
+            }
+
+            var newState = state.AddManipulator(point).Item1;
+            var newMetadata = new StateMetadata() { State = newState, Move = "B" + point.ToString() };
+            return new List<StateMetadata>() { newMetadata };
+        }
     }
 
     public class StateMetadata
@@ -176,7 +201,7 @@ namespace Solver
         public State OriginalState { get; set; }
         public int Depth { get; set; }
         public StateMetadata PreviousState { get; set; }
-        public char Move { get; set; }
+        public string Move { get; set; }
         public Lazy<int> ClosestUnpaintedCellDistance { get; private set; }
         public Lazy<int> NearbyUnpaintedCells { get; private set; }
 
@@ -243,11 +268,6 @@ namespace Solver
 
             ans.Reverse();
             return ans;
-        }
-
-        public char GetMove()
-        {
-            return ToList().First().Move;
         }
     }
 

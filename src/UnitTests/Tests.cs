@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Solver
@@ -55,6 +56,16 @@ namespace Solver
             Assert.AreEqual(3, state2.Direction);
             Assert.AreEqual(0, state3.Direction);
             Assert.AreEqual(2, state4.Direction);
+        }
+
+        [TestMethod]
+        public void TestBlockers()
+        { 
+            var blockers = State.Blockers(new Point(2, 1)).ToList();
+
+            Assert.AreEqual(2, blockers.Count);
+            Assert.AreEqual(new Point(1, 0), blockers[0]);
+            Assert.AreEqual(new Point(1, 1), blockers[1]);
         }
     }
 }
