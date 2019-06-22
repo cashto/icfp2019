@@ -22,6 +22,20 @@ namespace Solver
         private int MaxY { get; set; }
 
         public Board(
+            int maxX,
+            int maxY)
+        {
+            MaxX = maxX;
+            MaxY = maxY;
+            Map = new char[MaxX, MaxY];
+
+            foreach (var p in AllPoints)
+            {
+                Map[p.X, p.Y] = UnpaintedEmpty;
+            }
+        }
+
+        public Board(
             List<Point> map,
             List<List<Point>> obstacles,
             List<Tuple<char, Point>> boosts)
@@ -72,7 +86,7 @@ namespace Solver
             {
                 MaxX = MaxX,
                 MaxY = MaxY,
-                Map = (char[,]) Map.Clone()
+                Map = (char[,])Map.Clone()
             };
         }
 
@@ -175,6 +189,64 @@ namespace Solver
             {
                 yield return Tuple.Create(p[i], p[(i + 1) % p.Count]);
             }
+        }
+
+        class PathState
+        {
+            public Point Point { get; set; }
+            public int Depth { get; set; }
+            public PathState PreviousState { get; set; }
+
+            public List<PathState> ToList()
+            {
+                var ans = new List<PathState>();
+                var p = this;
+
+                while (p != null)
+                {
+                    ans.Add(p);
+                    p = p.PreviousState;
+                }
+
+                ans.Reverse();
+                return ans;
+            }
+        }
+
+        public List<Point> PathFind(
+            Point from,
+            Point to)
+        {
+            var visited = new HashSet<Point>();
+            Func<PathState, int> score = (pathState) => pathState.Point.Distance(to) + pathState.Depth;
+            var queue = new PriorityQueue<PathState>((lhs, rhs) => score(lhs) > score(rhs));
+            queue.Push(new PathState() { Point = from });
+
+            while (!queue.IsEmpty())
+            {
+                var state = queue.Pop();
+                if (state.Point == to)
+                {
+                    return state.ToList().Select(i => i.Point).ToList();
+                }
+
+                foreach (var dir in Point.AdjacentPoints)
+                {
+                    var newPoint = state.Point + dir;
+                    if (!IsWall(newPoint) && !visited.Contains(newPoint))
+                    {
+                        visited.Add(newPoint);
+                        queue.Push(new PathState()
+                        {
+                            Point = newPoint,
+                            Depth = state.Depth + 1,
+                            PreviousState = state
+                        });
+                    }
+                }
+            }
+
+            return null;
         }
     }
 

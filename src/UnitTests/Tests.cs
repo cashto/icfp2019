@@ -67,5 +67,33 @@ namespace Solver
             Assert.AreEqual(new Point(1, 0), blockers[0]);
             Assert.AreEqual(new Point(1, 1), blockers[1]);
         }
+
+        [TestMethod]
+        public void TestGenerateMap()
+        {
+            var desc = GenerateMap.Generate(new MapSpecification() { Size = 30 });
+            var state = new State(desc);
+            Console.WriteLine(state.Board);
+        }
+
+        [TestMethod]
+        public void TestPathFinding()
+        {
+            var board = new Board(30, 30);
+            var undo = new BoardUndo();
+            board.Set(new Point(0, 1), Board.Wall, undo);
+            board.Set(new Point(1, 0), Board.Wall, undo);
+            var middle = new Point(15, 15);
+            var bottomLeft = new Point(0, 0);
+            var topRight = new Point(29, 29);
+
+            var path = board.PathFind(bottomLeft, middle);
+            Assert.IsNull(path);
+
+            path = board.PathFind(topRight, middle);
+            Assert.AreEqual(29, path.Count);
+            Assert.AreEqual(path.First(), topRight);
+            Assert.AreEqual(path.Last(), middle);
+        }
     }
 }
