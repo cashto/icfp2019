@@ -35,16 +35,22 @@ namespace Solver
                     //planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
-                var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
-                if (reallyUnpainted != state.UnpaintedCount)
-                {
-                    state.UnpaintedCount = reallyUnpainted;
-                }
+                //var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
+                //if (reallyUnpainted != state.UnpaintedCount)
+                //{
+                //    ; // state.UnpaintedCount = reallyUnpainted;
+                //}
 
                 var plan = Plan(state, planDebug);
                 foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count) - 2))
                 {
                     Console.Out.Write(i.Move);
+                    var newState = state.MultiMove(i.Move);
+                    if (newState.UnpaintedCount != i.State.UnpaintedCount)
+                    {
+                        ;
+                    }
+
                     state = i.State;
                 }
             }

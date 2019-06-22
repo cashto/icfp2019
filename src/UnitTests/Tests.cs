@@ -95,5 +95,21 @@ namespace Solver
             Assert.AreEqual(path.First(), topRight);
             Assert.AreEqual(path.Last(), middle);
         }
+
+        [TestMethod]
+        public void TestNotAllPainted()
+        {
+            var fileName = @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-026.desc";
+
+            var desc = File.ReadAllText(fileName);
+
+            var state = new State(desc);
+
+            var moves = File.ReadAllText(@"C:\Users\cashto\Documents\GitHub\icfp2019\solutions\prob-026.sol");
+
+            var endState = state.MultiMove(moves);
+
+            Console.WriteLine(endState);
+        }
     }
 }

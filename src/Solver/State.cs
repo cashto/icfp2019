@@ -90,9 +90,14 @@ namespace Solver
         private State CloneNextStep()
         {
             var newState = Clone();
-            newState.FastWheelsTime = Math.Max(0, newState.FastWheelsTime - 1);
-            newState.DrillTime = Math.Max(0, newState.DrillTime - 1);
+            newState.NextStep();
             return newState;
+        }
+
+        private void NextStep()
+        {
+            FastWheelsTime = Math.Max(0, FastWheelsTime - 1);
+            DrillTime = Math.Max(0, DrillTime - 1);
         }
 
         private State Clone()
@@ -114,14 +119,48 @@ namespace Solver
         public State MultiMove(string s)
         {
             var ans = this;
+            var i = 0;
 
-            foreach (var c in s)
+            while (s != string.Empty)
             {
-                var newState = ans.Move(c)?.Item1;
-                ans = newState ?? ans;
+                ++i;
+                if (i == 445)
+                {
+                    ;
+                }
+
+                var newState = ans.MoveOne(s);
+                ans = newState.Item1;
+                s = newState.Item2;
             }
 
             return ans;
+        }
+
+        public Tuple<State, string> MoveOne(string s)
+        {
+            State newState = null;
+
+            var c = s[0];
+            s = s.Substring(1);
+
+            if (c == Board.Manipulator)
+            {
+                var point = ParsePoint(s);
+                s = point.Item2;
+                newState = AddManipulator(point.Item1)?.Item1;
+            }
+            else
+            {
+                newState = Move(c)?.Item1;
+            }
+            
+            if (newState == null)
+            {
+                ;
+            }
+
+            return Tuple.Create(newState ?? this, s);
         }
 
         // Returns null if move is possible or state does not change
@@ -185,16 +224,20 @@ namespace Solver
 
         private Tuple<State, BoardUndo> Move(Point p)
         {
-            var newState = CloneNextStep();
+            var newState = Clone();
             var ans = newState.MoveOneStep(p);
 
-            if (ans == null || FastWheelsTime == 0)
+            if (ans != null && FastWheelsTime > 0)
             {
-                return ans;
+                ans = newState.MoveOneStep(p, ans.Item2) ?? ans;
             }
 
-            var ans2 = newState.MoveOneStep(p, ans.Item2);
-            return ans2 ?? ans;
+            if (ans != null)
+            {
+                ans.Item1.NextStep(); 
+            }
+
+            return ans;
         }
 
         private Tuple<State, BoardUndo> MoveOneStep(Point dir, BoardUndo undo = null)
@@ -231,6 +274,8 @@ namespace Solver
 
         public Tuple<State, BoardUndo> AddManipulator(Point where)
         {
+            var oldBoard = Board.Clone();
+
             var newState = CloneNextStep();
             newState.Robot = newState.Robot.ToList();
             newState.Robot.Add(where);
@@ -239,6 +284,7 @@ namespace Solver
 
             var undo = new BoardUndo();
             newState.Paint(undo);
+            Board = oldBoard;
 
             return Tuple.Create(newState, undo);
         }
@@ -315,7 +361,7 @@ namespace Solver
 
         private static Tuple<Point, string> ParsePoint(string s)
         {
-            var match = Regex.Match(s, @"^\((\d+),(\d+)\)(.*)");
+            var match = Regex.Match(s, @"^\((-?\d+),(-?\d+)\)(.*)");
             return Tuple.Create(
                 new Point(int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value)),
                 match.Groups[3].Value);

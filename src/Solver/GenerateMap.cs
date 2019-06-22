@@ -13,23 +13,7 @@ namespace Solver
             var board = GenerateBoard(spec);
             var startingPoint = board.AllPoints.First(p => !board.IsWall(p));
             var edges = RemoveDuplicates(WalkEdge(board, startingPoint, 0)).ToList();
-
-            foreach (var i in edges)
-            {
-                //Console.WriteLine(i);
-            }
-
-            Console.WriteLine();
-            Console.WriteLine("Removing collinear points");
-            Console.WriteLine();
-
             edges = RemoveCollinearPoints(edges).ToList();
-
-            foreach (var i in edges)
-            {
-                //Console.WriteLine(i);
-            }
-
             var map = string.Join(",", edges.Select(p => p.ToString()));
             return $"{map}#{startingPoint}##";
         }
@@ -40,7 +24,7 @@ namespace Solver
 
             var board = new Board(spec.Size, spec.Size);
 
-            var fill = spec.Size * spec.Size / 5;
+            var fill = spec.Size * spec.Size / 3;
 
             var middle = new Point(spec.Size / 2, spec.Size / 2);
 
