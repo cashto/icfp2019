@@ -198,14 +198,14 @@ namespace Solver
             public int Depth { get; set; }
             public PathState PreviousState { get; set; }
 
-            public List<PathState> ToList()
+            public List<T> Select<T>(Func<PathState, T> fn)
             {
-                var ans = new List<PathState>();
+                var ans = new List<T>();
                 var p = this;
 
                 while (p != null)
                 {
-                    ans.Add(p);
+                    ans.Add(fn(p));
                     p = p.PreviousState;
                 }
 
@@ -228,7 +228,7 @@ namespace Solver
                 var state = queue.Pop();
                 if (state.Point == to)
                 {
-                    return state.ToList().Select(i => i.Point).ToList();
+                    return state.Select(i => i.Point);
                 }
 
                 foreach (var dir in Point.AdjacentPoints)
@@ -258,7 +258,7 @@ namespace Solver
                 (PathState path) => Point.AdjacentPoints.Any(p => IsWall(p + path.Point)),
                 (PathState path) => forbiddenPoints.Contains(path.Point));
 
-            return ans.ToList().Select(i => i.Point).ToList();
+            return ans.Select(i => i.Point);
             
             //var visited = new HashSet<Point>();
             //Func<PathState, int> score = (pathState) => pathState.Depth;

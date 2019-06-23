@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Data.SqlTypes;
+using System.Collections;
+using System.Data;
 
 namespace Solver
 {
@@ -64,7 +67,7 @@ namespace Solver
                 {
                     Console.WriteLine();
                     Console.WriteLine(state);
-                    planDebug = Console.ReadKey().KeyChar == 'x';
+                    //planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
                 var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
@@ -74,10 +77,10 @@ namespace Solver
                 }
 
                 var plan = Plan(state, planDebug && debug);
-                foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count)))
+                foreach (var i in plan)
                 {
-                    Console.Out.Write(i.Move);
-                    state = state.MultiMove(i.Move);
+                    Console.Out.Write(i);
+                    state = state.MultiMove(i);
                 }
             }
         }
@@ -99,17 +102,15 @@ namespace Solver
             }
         }
 
-        public static List<StateMetadata> Plan(State state, bool debug)
+        public static List<string> Plan(State state, bool debug)
         {
-            if (state.Boosts.Contains(Board.Manipulator))
-            {
-                return ManipulatorPlan(state);
-            }
-
-            return PlanA(state, debug) ?? PlanB(state, debug);
+            return
+                BoostPlan(state) ??
+                PlanC(state, debug) ??
+                PlanB(state, debug);
         }
 
-        public static List<StateMetadata> PlanA(State state, bool debug)
+        public static List<string> PlanA(State state, bool debug)
         {
             var middle = new Point(state.Board.MaxX / 2, state.Board.MaxY / 2);
             string moves = "FLWASDQE";
@@ -139,7 +140,7 @@ namespace Solver
                         return null;
                     }
 
-                    return bestMove.ToList();
+                    return bestMove.ToList().Select(i => i.Move).ToList();
                 }
 
                 foreach (var move in moves.Where(m => currentMetadata.Depth == 0 || m != 'F' && m != 'L'))
@@ -206,7 +207,7 @@ namespace Solver
             throw new Exception("No moves found");
         }
 
-        public static List<StateMetadata> PlanB(State state, bool debug)
+        public static List<string> PlanB(State state, bool debug)
         {
             string moves = "WASD";
 
@@ -230,7 +231,7 @@ namespace Solver
 
                 if (!currentBoard.IsWall(currentPosition) && !currentBoard.IsPainted(currentPosition))
                 {
-                    return currentMetadata.ToList();
+                    return currentMetadata.ToList().Select(i => i.Move).ToList();
                 }
 
                 foreach (var move in moves)
@@ -262,6 +263,102 @@ namespace Solver
             throw new Exception("No moves found");
         }
 
+        public static List<string> PlanC(State state, bool debug)
+        {
+            state = state.Clone();
+            state.Board = state.Board.Clone();
+
+            var points = new List<Point>();
+            var board = state.Board;
+            Point? boostPoint = null;
+
+            board.BreadthFirstSearch(
+                state.Position,
+                (path) =>
+                {
+                    if ("BFL".Contains(board.Get(path.Point)))
+                    {
+                        boostPoint = path.Point;
+                        return true;
+                    }
+
+                    if (path.Depth > 4)
+                    {
+                        return true;
+                    }
+
+                    if (!board.IsPainted(path.Point))
+                    {
+                        points.Add(path.Point);
+                    }
+
+                    return false;
+                });
+
+            if (boostPoint != null)
+            {
+                return GeneratePath(state, boostPoint.Value).Item1;
+            }
+
+            var ans = new List<string>();
+            while (points.Any())
+            {
+                var point = GetClosestPoint(state.Position, points);
+                points.Remove(point);
+
+                if (!state.Board.IsPainted(point))
+                {
+                    var result = GeneratePath(state, point);
+                    ans.AddRange(result.Item1);
+                    state = result.Item2;
+                }
+            }
+
+            if (!ans.Any())
+            {
+                return null;
+            }
+
+            ans.Add("Q");
+            return ans;
+        }
+
+        private static Tuple<List<string>, State> GeneratePath(State state, Point target)
+        {
+            var ans = new List<string>();
+
+            while (state.Position != target)
+            {
+                var path = state.Board.PathFind(state.Position, target);
+                var p = path[1];
+                var move =
+                    p.X < state.Position.X ? "A" :
+                    p.X > state.Position.X ? "D" :
+                    p.Y < state.Position.Y ? "S" :
+                    "W";
+
+                ans.Add(move);
+                state = state.Move(move[0]).Item1;
+            }
+
+            return Tuple.Create(ans, state);
+        }
+
+        private static Point GetClosestPoint(Point target, IEnumerable<Point> points)
+        {
+            var ans = points.First();
+
+            foreach (var point in points.Skip(1))
+            {
+                if (point.Distance(target) < ans.Distance(target))
+                {
+                    ans = point;
+                }
+            }
+
+            return ans;
+        }
+
         private static bool CompareMetadata(StateMetadata lhs, StateMetadata rhs)
         {
             foreach (var metric in GetMetrics(lhs).Zip(GetMetrics(rhs), (l, r) => l - r))
@@ -288,18 +385,26 @@ namespace Solver
             yield return -metadata.Score;
         }
 
-        public static List<StateMetadata> ManipulatorPlan(State state)
+        public static List<string> BoostPlan(State state)
         {
-            var y = (state.Robot.Count + 1) / 2 * (state.Robot.Count % 2 == 0 ? -1 : 1);
-            var point = new Point(1, y);
-            foreach (var i in Enumerable.Range(0, state.Direction))
+            if (state.Boosts.Contains(Board.Manipulator))
             {
-                point = point.RotateRight();
+                var y = (state.Robot.Count + 1) / 2 * (state.Robot.Count % 2 == 0 ? -1 : 1);
+                var point = new Point(1, y);
+                foreach (var i in Enumerable.Range(0, state.Direction))
+                {
+                    point = point.RotateRight();
+                }
+
+                return new List<string>() { "B" + point.ToString() };
             }
 
-            var newState = state.AddManipulator(point).Item1;
-            var newMetadata = new StateMetadata() { State = newState, Move = "B" + point.ToString() };
-            return new List<StateMetadata>() { newMetadata };
+            if (state.Boosts.Contains(Board.FastWheels) && state.FastWheelsTime == 0)
+            {
+                //return new List<string>() { "F" };
+            }
+
+            return null;
         }
     }
 

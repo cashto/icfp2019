@@ -102,7 +102,7 @@ namespace Solver
             DrillTime = Math.Max(0, DrillTime - 1);
         }
 
-        private State Clone()
+        public State Clone()
         {
             return new State()
             {
