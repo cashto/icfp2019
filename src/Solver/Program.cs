@@ -13,7 +13,7 @@ namespace Solver
 {
     public class Program
     {
-        public const int MaxDepth = 2;
+        public const int MaxDepth = 4;
 
         static void Main(string[] args)
         {
@@ -41,64 +41,23 @@ namespace Solver
 
         public static void Solve(State state, bool debug)
         {
-            var weights = new Dictionary<Point, int>();
-            var middle = new Point(state.Board.MaxX / 2, state.Board.MaxY / 2);
-            var startPoint = new Point();
-            foreach (var p in state.Board.AllPoints)
-            {
-                if (!state.Board.IsWall(p) && p.Distance(middle) < startPoint.Distance(middle))
-                {
-                    startPoint = p;
-                }
-            }
-
-            state.Board.BreadthFirstSearch(startPoint, (path) => 
-                {
-                    weights[path.Point] = path.Depth;
-                    return false;
-                });
-
-            state.Weights = weights;
-
+            var moves = 0;
             while (state.UnpaintedCount > 0)
             {
-                var planDebug = true;
+                var planDebug = false;
                 if (debug)
                 {
                     Console.WriteLine();
-                    Console.WriteLine(state);
+                    Console.WriteLine($"{moves} {state}");
+                    //Console.WriteLine(state.Board);
                     //planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
-                var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
-                if (reallyUnpainted != state.UnpaintedCount)
-                {
-                    ; // state.UnpaintedCount = reallyUnpainted;
-                }
-
                 var plan = Plan(state, planDebug && debug);
-                foreach (var i in plan)
-                {
-                    Console.Out.Write(i);
-                    state = state.MultiMove(i);
-                }
-            }
-        }
-
-        static void Play(State state)
-        { 
-            while (true)
-            {
-                Console.WriteLine();
-                Console.Write(state);
-
-                char ch = char.ToUpperInvariant(Console.ReadKey().KeyChar);
-                if (ch == '\n')
-                {
-                    return;
-                }
-
-                state = state.MultiMove(ch.ToString());
+                moves += plan.Count;
+                var planString = string.Join("", plan);
+                Console.Write(planString);
+                state = state.MultiMove(planString);
             }
         }
 
@@ -113,7 +72,7 @@ namespace Solver
         public static List<string> PlanA(State state, bool debug)
         {
             var middle = new Point(state.Board.MaxX / 2, state.Board.MaxY / 2);
-            string moves = "FLWASDQE";
+            string moves = "FWASDQE";
             StateMetadata bestMove = null;
 
             var metadata = new StateMetadata()
@@ -149,16 +108,9 @@ namespace Solver
 
                     if (newState != null)
                     {
-                        var undo = newState.Item2;
-                        var score = undo == null ? 0 : undo.Points.Sum(i => {
-                            var s = 0;
-                            newState.Item1.Weights.TryGetValue(i.Item1, out s);
-                            return s;
-                        });
-
                         var newMetadata = new StateMetadata()
                         {
-                            Score = currentMetadata.Score + score,
+                            Score = currentMetadata.State.UnpaintedCount - newState.Item1.UnpaintedCount,
                             State = newState.Item1,
                             OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
@@ -175,17 +127,9 @@ namespace Solver
                         if (debug)
                         {
                             var betterMoveString = isBetterMove ? " *" : "";
-
-                            var transpositionString = "";
-                            StateMetadata oldMetadata = null;
-                            if (transpositionTable.TryGetValue(newMetadata.State.GetHashTuple(), out oldMetadata))
-                            {
-                                //transpositionString = " is a transposition for " + string.Join("", oldMetadata.ToList().Select(i => i.Move));
-                            }
-
                             if (isBetterMove)
                             {
-                                Console.WriteLine($"{newMetadata}{transpositionString}{betterMoveString}");
+                                Console.WriteLine($"{newMetadata}{betterMoveString}");
                             }
                         }
 
@@ -207,21 +151,23 @@ namespace Solver
             throw new Exception("No moves found");
         }
 
-        public static List<string> PlanB(State state, bool debug)
+        public static List<string> PlanB(State state, bool debug, Func<Point, bool> isForbidden = null)
         {
-            string moves = "WASD";
-
-            var metadata = new StateMetadata()
+            if (isForbidden == null)
             {
-                State = state,
-                OriginalState = state
-            };
+                isForbidden = x => false;
+            }
 
-            var transpositionTable = new Dictionary<State, StateMetadata>() { { state, metadata } };
+            string moves = "WASD";
+            var transpositionTable = new HashSet<Point>() { state.Position };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
                 lhs.Depth == rhs.Depth ? CompareMetadata(lhs, rhs) : lhs.Depth < rhs.Depth);
 
-            priorityQueue.Push(metadata);
+            priorityQueue.Push(new StateMetadata()
+            {
+                State = state,
+                OriginalState = state
+            });
 
             while (!priorityQueue.IsEmpty())
             {
@@ -238,7 +184,7 @@ namespace Solver
                 {
                     var newState = currentMetadata.State.Move(move);
 
-                    if (newState != null)
+                    if (newState != null && !isForbidden(newState.Item1.Position))
                     {
                         var newMetadata = new StateMetadata()
                         {
@@ -251,97 +197,51 @@ namespace Solver
 
                         newMetadata.State.Board.Undo(newState.Item2);
 
-                        if (!transpositionTable.ContainsKey(newState.Item1))
+                        if (!transpositionTable.Contains(newState.Item1.Position))
                         {
                             priorityQueue.Push(newMetadata);
-                            transpositionTable[newMetadata.State] = null;
+                            transpositionTable.Add(newMetadata.State.Position);
                         }
                     }
                 }
             }
 
-            throw new Exception("No moves found");
+            return null;
         }
 
         public static List<string> PlanC(State state, bool debug)
         {
-            state = state.Clone();
-            state.Board = state.Board.Clone();
+            var board = state.Board.Clone();
+            var ans = PlanCImpl(state, debug);
+            state.Board = board;
+            return ans;
+        }
 
-            var points = new List<Point>();
-            var board = state.Board;
-            Point? boostPoint = null;
-
-            board.BreadthFirstSearch(
+        public static List<string> PlanCImpl(State state, bool debug)
+        {
+            state.Board.BreadthFirstSearch(
                 state.Position,
                 (path) =>
                 {
-                    if ("BFL".Contains(board.Get(path.Point)))
-                    {
-                        boostPoint = path.Point;
-                        return true;
-                    }
-
-                    if (path.Depth > 4)
-                    {
-                        return true;
-                    }
-
-                    if (!board.IsPainted(path.Point))
-                    {
-                        points.Add(path.Point);
-                    }
-
-                    return false;
+                    state.VisitedNearby.Add(path.Point);
+                    return path.Depth < 4;
                 });
 
-            if (boostPoint != null)
-            {
-                return GeneratePath(state, boostPoint.Value).Item1;
-            }
-
-            var ans = new List<string>();
-            while (points.Any())
-            {
-                var point = GetClosestPoint(state.Position, points);
-                points.Remove(point);
-
-                if (!state.Board.IsPainted(point))
-                {
-                    var result = GeneratePath(state, point);
-                    ans.AddRange(result.Item1);
-                    state = result.Item2;
-                }
-            }
-
-            if (!ans.Any())
+            var ans = PlanA(state, debug);
+            if (ans == null)
             {
                 return null;
             }
 
-            ans.Add("Q");
-            return ans;
-        }
+            state = state.MultiMove(string.Join("", ans));
 
-        private static Tuple<List<string>, State> GeneratePath(State state, Point target)
-        {
-            var ans = new List<string>();
-
-            while (state.Position != target)
+            var returnPath = PlanB(state, debug, (p) => !state.VisitedNearby.Contains(p));
+            if (returnPath != null)
             {
-                var path = state.Board.PathFind(state.Position, target);
-                var p = path[1];
-                var move =
-                    p.X < state.Position.X ? "A" :
-                    p.X > state.Position.X ? "D" :
-                    p.Y < state.Position.Y ? "S" :
-                    "W";
-
-                ans.Add(move);
-                state = state.Move(move[0]).Item1;
+                ans.AddRange(returnPath);
             }
 
-            return Tuple.Create(ans, state);
+            return ans;
         }
 
         private static Point GetClosestPoint(Point target, IEnumerable<Point> points)
@@ -374,14 +274,11 @@ namespace Solver
 
         // Heuristics:
         //    Maximize boosts collected.
-        //    Minimize nearby unpainted squares.
         //    Maximize score unpainted squares.
         //
         private static IEnumerable<int> GetMetrics(StateMetadata metadata)
         {
             yield return -metadata.State.BoostsCollected;
-            //yield return metadata.NearbyUnpaintedCells.Value;
-            //yield return metadata.State.UnpaintedCount;
             yield return -metadata.Score;
         }
 
@@ -399,11 +296,6 @@ namespace Solver
                 return new List<string>() { "B" + point.ToString() };
             }
 
-            if (state.Boosts.Contains(Board.FastWheels) && state.FastWheelsTime == 0)
-            {
-                //return new List<string>() { "F" };
-            }
-
             return null;
         }
     }
@@ -416,57 +308,15 @@ namespace Solver
         public int Score { get; set; }
         public StateMetadata PreviousState { get; set; }
         public string Move { get; set; }
-        public Lazy<int> ClosestUnpaintedCellDistance { get; private set; }
-        public Lazy<int> NearbyUnpaintedCells { get; private set; }
 
         public StateMetadata()
         {
-            ClosestUnpaintedCellDistance = new Lazy<int>(CalculateDistance);
-            NearbyUnpaintedCells = new Lazy<int>(CalculateNearbyUnpaintedCells);
         }
 
         public override string ToString()
         {
             var moves = string.Join("", ToList().Select(i => i.Move));
             return $"{moves} Depth={Depth} Remain={State.UnpaintedCount} Score={Score}";
-        }
-
-        private int CalculateDistance()
-        {
-            var bestDistance = -1;
-            var board = State.Board;
-            var allUnpaintedPoints = board.AllPoints.Where(p => !board.IsWall(p) && !board.IsPainted(p));
-
-            foreach (var p in allUnpaintedPoints)
-            {
-                var d = State.Position.Distance(p);
-                if (bestDistance < 0 || d < bestDistance)
-                {
-                    bestDistance = d;
-                }
-            }
-
-            return bestDistance;
-        }
-
-        private int CalculateNearbyUnpaintedCells()
-        {
-            var paintedCells = 0;
-            var board = State.Board;
-
-            foreach (var dy in Enumerable.Range(-1, 3))
-            {
-                foreach (var dx in Enumerable.Range(1, 3))
-                {
-                    var p = OriginalState.Position + new Point(dx, dy);
-                    if (!board.IsWall(p) && !board.IsPainted(p))
-                    {
-                        ++paintedCells;
-                    }
-                }
-            }
-
-            return paintedCells;
         }
 
         public List<StateMetadata> ToList()

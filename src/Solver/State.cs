@@ -9,7 +9,7 @@ namespace Solver
 {
     public class State
     {
-        public Dictionary<Point, int> Weights { get; set; }
+        public HashSet<Point> VisitedNearby { get; set; }
         public Board Board { get; set; }
         public int DrillTime { get; private set; }
         public int FastWheelsTime { get; private set; }
@@ -60,6 +60,8 @@ namespace Solver
             Paint(new BoardUndo());
 
             UnpaintedCount = Board.AllPoints.Count(p => !Board.IsWall(p) && !Board.IsPainted(p));
+
+            VisitedNearby = new HashSet<Point>();
         }
 
         public override bool Equals(object obj)
@@ -85,7 +87,7 @@ namespace Solver
 
         public override string ToString()
         {
-            return $"Remain={UnpaintedCount} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}";
+            return $"Remain={UnpaintedCount} Position={Position} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}";
             //return $"Remain={UnpaintedCount} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}\n{Board.ToString(Position)}";
         }
 
@@ -106,7 +108,6 @@ namespace Solver
         {
             return new State()
             {
-                Weights = Weights,
                 Board = Board,
                 DrillTime = DrillTime,
                 FastWheelsTime = FastWheelsTime,
@@ -115,23 +116,17 @@ namespace Solver
                 Robot = Robot,
                 Boosts = Boosts,
                 UnpaintedCount = UnpaintedCount,
-                BoostsCollected = BoostsCollected
+                BoostsCollected = BoostsCollected,
+                VisitedNearby = VisitedNearby
             };
         }
 
         public State MultiMove(string s)
         {
             var ans = this;
-            var i = 0;
-
+ 
             while (s != string.Empty)
             {
-                ++i;
-                if (i == 445)
-                {
-                    ;
-                }
-
                 var newState = ans.MoveOne(s);
                 ans = newState.Item1;
                 s = newState.Item2;
@@ -160,7 +155,7 @@ namespace Solver
             
             if (newState == null)
             {
-                ;
+                throw new Exception("Illegal move");
             }
 
             return Tuple.Create(newState ?? this, s);
