@@ -77,14 +77,15 @@ namespace Solver
             return GetHashTuple().GetHashCode();
         }
 
-        private Tuple<int, int, int, int, int, int> GetHashTuple()
+        public Tuple<int, int, int, int, int, int> GetHashTuple()
         {
             return Tuple.Create(Position.X, Position.Y, Direction, UnpaintedCount, DrillTime + FastWheelsTime, BoostsCollected);
         }
 
         public override string ToString()
         {
-            return $"Remain={UnpaintedCount} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}\n{Board.ToString(Position)}";
+            return $"Remain={UnpaintedCount} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}";
+            //return $"Remain={UnpaintedCount} Drill={DrillTime} Wheels={FastWheelsTime} Boosts={new string(Boosts.ToArray())}\n{Board.ToString(Position)}";
         }
 
         private State CloneNextStep()
@@ -259,7 +260,7 @@ namespace Solver
             {
                 Board.Set(newPosition, Board.Empty, undo);
             }
-            else if (item != Board.Empty && item != Board.Mystery)
+            else if ("BFL".Contains(item))
             {
                 Boosts = Boosts.ToList();
                 Boosts.Add(item);
@@ -345,7 +346,7 @@ namespace Solver
             }
         }
 
-        private static IEnumerable<T> ParseList<T>(string s, char sep, Func<string, Tuple<T, string>> parser)
+        public static IEnumerable<T> ParseList<T>(string s, char sep, Func<string, Tuple<T, string>> parser)
         {
             while (s != string.Empty)
             {
@@ -359,7 +360,7 @@ namespace Solver
             }
         }
 
-        private static Tuple<Point, string> ParsePoint(string s)
+        public static Tuple<Point, string> ParsePoint(string s)
         {
             var match = Regex.Match(s, @"^\((-?\d+),(-?\d+)\)(.*)");
             return Tuple.Create(

@@ -25,7 +25,7 @@ namespace Solver
         [TestMethod]
         public void TestSolver()
         {
-            var fileName = @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-003.desc";
+            var fileName = @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-102.desc";
 
             var desc = File.ReadAllText(fileName);
 
@@ -71,7 +71,7 @@ namespace Solver
         [TestMethod]
         public void TestGenerateMap()
         {
-            var desc = GenerateMap.Generate(new MapSpecification() { Size = 30 });
+            var desc = GenerateMap.Generate(new MapSpecification() { Size = 50, MinVertexes = 0, MaxVertexes = 10000 });
             var state = new State(desc);
             Console.WriteLine(state.Board);
         }
@@ -99,13 +99,13 @@ namespace Solver
         [TestMethod]
         public void TestNotAllPainted()
         {
-            var fileName = @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-026.desc";
+            var fileName = @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\block-10.desc";
 
             var desc = File.ReadAllText(fileName);
 
             var state = new State(desc);
 
-            var moves = File.ReadAllText(@"C:\Users\cashto\Documents\GitHub\icfp2019\solutions\prob-026.sol");
+            var moves = File.ReadAllText(@"C:\Users\cashto\Documents\GitHub\icfp2019\solutions\block-10.sol");
 
             var endState = state.MultiMove(moves);
 

@@ -16,10 +16,11 @@ namespace Solver
         public const char Drill = 'L';
         public const char Mystery = 'X';
         public const char Teleport = 'R';
+        public const char ClonePoint = 'C';
 
         private char[,] Map { get; set; }
-        private int MaxX { get; set; }
-        private int MaxY { get; set; }
+        public int MaxX { get; private set; }
+        public int MaxY { get; private set; }
 
         public Board(
             int maxX,
@@ -234,6 +235,42 @@ namespace Solver
                 {
                     var newPoint = state.Point + dir;
                     if (!IsWall(newPoint) && !visited.Contains(newPoint))
+                    {
+                        visited.Add(newPoint);
+                        queue.Push(new PathState()
+                        {
+                            Point = newPoint,
+                            Depth = state.Depth + 1,
+                            PreviousState = state
+                        });
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public List<Point> PathFindToWall(
+            Point from,
+            HashSet<Point> forbiddenPoints)
+        {
+            var visited = new HashSet<Point>();
+            Func<PathState, int> score = (pathState) => pathState.Depth;
+            var queue = new PriorityQueue<PathState>((lhs, rhs) => score(lhs) > score(rhs));
+            queue.Push(new PathState() { Point = from });
+
+            while (!queue.IsEmpty())
+            {
+                var state = queue.Pop();
+                if (IsWall(state.Point) && state.Point != from)
+                {
+                    return state.ToList().Select(i => i.Point).ToList();
+                }
+
+                foreach (var dir in Point.AdjacentPoints)
+                {
+                    var newPoint = state.Point + dir;
+                    if (!visited.Contains(newPoint) && !forbiddenPoints.Contains(newPoint))
                     {
                         visited.Add(newPoint);
                         queue.Push(new PathState()

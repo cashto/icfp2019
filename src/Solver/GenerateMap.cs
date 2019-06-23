@@ -1,21 +1,86 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Solver
 {
     public class GenerateMap
     {
+        public static void GoMain(string fileName)
+        {
+            var spec = MapSpecification.FromString(Regex.Replace(File.ReadAllText(fileName), @"\r?\n?", ""));
+            Console.WriteLine(Generate(spec));
+        }
+
         public static string Generate(MapSpecification spec)
         {
             var board = GenerateBoard(spec);
+
+            board = ConnectObstacles(board, spec);
+
             var startingPoint = board.AllPoints.First(p => !board.IsWall(p));
             var edges = RemoveDuplicates(WalkEdge(board, startingPoint, 0)).ToList();
             edges = RemoveCollinearPoints(edges).ToList();
+
+            Validate(edges, spec);
+
             var map = string.Join(",", edges.Select(p => p.ToString()));
-            return $"{map}#{startingPoint}##";
+            var boosts = GenerateBoosts(board, spec);
+
+            return $"{map}#{startingPoint}##{boosts}";
+        }
+
+        private static void Validate(List<Point> edges, MapSpecification spec)
+        {
+            if (edges.Count > spec.MaxVertexes)
+            {
+                throw new Exception("Solution has too many edges");
+            }
+
+            if (edges.Count < spec.MinVertexes)
+            {
+                throw new Exception("Solution has too few edges");
+            }
+
+            var newBoard = new Board(edges, new List<List<Point>>(), new List<Tuple<char, Point>>());
+            if (spec.IncludePoints.Any(p => newBoard.IsWall(p)))
+            {
+                throw new Exception("Include point is a wall");
+            }
+
+            if (spec.ExcludePoints.Any(p => !newBoard.IsWall(p)))
+            {
+                throw new Exception("Exclude point is not a wall");
+            }
+        }
+
+        public static Board ConnectObstacles(Board board, MapSpecification spec)
+        {
+            var startingPoint = board.AllPoints.First(p => !board.IsWall(p));
+            var edges = RemoveDuplicates(WalkEdge(board, startingPoint, 0)).ToList();
+            edges = RemoveCollinearPoints(edges).ToList();
+            var newBoard = new Board(edges, new List<List<Point>>(), new List<Tuple<char, Point>>());
+
+            foreach (var p in board.AllPoints)
+            {
+                if (board.IsWall(p) && !newBoard.IsWall(p))
+                {
+                    var pathToWall = newBoard.PathFindToWall(p, spec.IncludePoints);
+                    if (pathToWall != null)
+                    {
+                        foreach (var p2 in pathToWall)
+                        {
+                            newBoard.Set(p2, Board.Wall, new BoardUndo());
+                        }
+                    }
+                }
+            }
+
+            return newBoard;
         }
 
         public static Board GenerateBoard(MapSpecification spec)
@@ -24,13 +89,19 @@ namespace Solver
 
             var board = new Board(spec.Size, spec.Size);
 
-            var fill = spec.Size * spec.Size / 3;
+            var fill = 100;//  spec.Size * spec.Size / 3;
 
             var middle = new Point(spec.Size / 2, spec.Size / 2);
+
+            foreach (var p in spec.ExcludePoints)
+            {
+                board.Set(p, Board.Wall, new BoardUndo());
+            }
 
             foreach (var i in Enumerable.Range(0, fill))
             {
                 var allowedPoints = board.AllPoints
+                    .Where(p => !spec.IncludePoints.Contains(p))
                     .Where(p => !board.IsWall(p) && Point.AdjacentPoints.Any(dir => board.IsWall(p + dir)))
                     .ToList();
 
@@ -59,6 +130,39 @@ namespace Solver
             }
 
             return board;
+        }
+
+        private static string GenerateBoosts(Board board, MapSpecification spec)
+        {
+            var boosts = new List<string>();
+
+            boosts.AddRange(GenerateBoosts(board, spec.ManipulatorCount, Board.Manipulator));
+            boosts.AddRange(GenerateBoosts(board, spec.FastWheelsCount, Board.FastWheels));
+            boosts.AddRange(GenerateBoosts(board, spec.DrillCount, Board.Drill));
+            boosts.AddRange(GenerateBoosts(board, spec.TeleportCount, Board.Teleport));
+            boosts.AddRange(GenerateBoosts(board, spec.CloneCount, Board.ClonePoint));
+            boosts.AddRange(GenerateBoosts(board, spec.MysteryCount, Board.Mystery));
+
+            return string.Join(";", boosts);
+        }
+
+        private static IEnumerable<string> GenerateBoosts(Board board, int count, char c)
+        {
+            var random = new Random();
+
+            foreach (var i in Enumerable.Range(0, count))
+            {
+                while (true)
+                {
+                    var p = new Point(random.Next() % board.MaxX, random.Next() % board.MaxY);
+                    if (board.Get(p) == Board.Empty)
+                    {
+                        board.Set(p, c, new BoardUndo());
+                        yield return $"{c}{p}";
+                        break;
+                    }
+                }
+            }
         }
 
         private static readonly List<Point> Corners = new List<Point>()
@@ -147,13 +251,36 @@ namespace Solver
         public int TeleportCount { get; set; }
         public int CloneCount { get; set; }
         public int MysteryCount { get; set; }
-        public List<Point> IncludePoints { get; set; }
-        public List<Point> ExcludePoints { get; set; }
+        public HashSet<Point> IncludePoints { get; set; }
+        public HashSet<Point> ExcludePoints { get; set; }
 
         public MapSpecification()
         {
-            IncludePoints = new List<Point>();
-            ExcludePoints = new List<Point>();
+            IncludePoints = new HashSet<Point>();
+            ExcludePoints = new HashSet<Point>();
+        }
+
+        public static MapSpecification FromString(string s)
+        {
+            var fields = s.Split('#');
+            var fields0 = fields[0].Split(',');
+
+            return new MapSpecification()
+            {
+                BlockId = int.Parse(fields0[0]),
+                Epoch = int.Parse(fields0[1]),
+                Size = int.Parse(fields0[2]),
+                MinVertexes = int.Parse(fields0[3]),
+                MaxVertexes = int.Parse(fields0[4]),
+                ManipulatorCount = int.Parse(fields0[5]),
+                FastWheelsCount = int.Parse(fields0[6]),
+                DrillCount = int.Parse(fields0[7]),
+                TeleportCount = int.Parse(fields0[8]),
+                CloneCount = int.Parse(fields0[9]),
+                MysteryCount = int.Parse(fields0[10]),
+                IncludePoints = new HashSet<Point>(State.ParseList<Point>(fields[1], ',', State.ParsePoint)),
+                ExcludePoints = new HashSet<Point>(State.ParseList<Point>(fields[2], ',', State.ParsePoint))
+            };
         }
     }
 }

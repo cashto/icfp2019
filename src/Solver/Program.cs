@@ -10,17 +10,30 @@ namespace Solver
 {
     public class Program
     {
-        public const int MaxDepth = 6;
+        public const int MaxDepth = 4;
 
         static void Main(string[] args)
         {
-            var fileName = args.Length > 0 ? args[0] : @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-025.desc";
+            var debug = args.Length == 0;
+            if (debug)
+            {
+                //args = new string[] { "puzzle", @"C:\Users\cashto\Documents\GitHub\icfp2019\work\puzzles\cashto.desc" };
+                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\block-8.desc" };
+            }
+
+            if (args.Length == 2)
+            {
+                GenerateMap.GoMain(args[1]);
+                return;
+            }
+
+            var fileName = args[0];
 
             var desc = File.ReadAllText(fileName);
 
             var state = new State(desc);
 
-            Solve(state, debug: args.Length == 0);
+            Solve(state, debug);
         }
 
         public static void Solve(State state, bool debug)
@@ -35,23 +48,17 @@ namespace Solver
                     //planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
-                //var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
-                //if (reallyUnpainted != state.UnpaintedCount)
-                //{
-                //    ; // state.UnpaintedCount = reallyUnpainted;
-                //}
+                var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
+                if (reallyUnpainted != state.UnpaintedCount)
+                {
+                    ; // state.UnpaintedCount = reallyUnpainted;
+                }
 
                 var plan = Plan(state, planDebug);
-                foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count) - 2))
+                foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count)))
                 {
                     Console.Out.Write(i.Move);
-                    var newState = state.MultiMove(i.Move);
-                    if (newState.UnpaintedCount != i.State.UnpaintedCount)
-                    {
-                        ;
-                    }
-
-                    state = i.State;
+                    state = state.MultiMove(i.Move);
                 }
             }
         }
@@ -80,6 +87,11 @@ namespace Solver
                 return ManipulatorPlan(state);
             }
 
+            return PlanA(state, debug) ?? PlanB(state, debug);
+        }
+
+        public static List<StateMetadata> PlanA(State state, bool debug)
+        {
             string moves = "FLWASDQE";
             StateMetadata bestMove = null;
 
@@ -89,7 +101,7 @@ namespace Solver
                 OriginalState = state
             };
 
-            var transpositionTable = new Dictionary<State, StateMetadata>() { { state, metadata } };
+            var transpositionTable = new Dictionary<object, StateMetadata>() { { state.GetHashTuple(), metadata } };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
                 lhs.Depth == rhs.Depth ? CompareMetadata(lhs, rhs) : lhs.Depth < rhs.Depth);
 
@@ -100,8 +112,13 @@ namespace Solver
                 var currentMetadata = priorityQueue.Pop();
 
                 if (bestMove != null && bestMove.State.UnpaintedCount == 0 ||
-                    currentMetadata.Depth >= MaxDepth && bestMove.State.UnpaintedCount < state.UnpaintedCount)
+                    currentMetadata.Depth >= MaxDepth)
                 {
+                    if (bestMove.State.UnpaintedCount == bestMove.OriginalState.UnpaintedCount)
+                    {
+                        return null;
+                    }
+
                     return bestMove.ToList();
                 }
 
@@ -132,9 +149,9 @@ namespace Solver
 
                             var transpositionString = "";
                             StateMetadata oldMetadata = null;
-                            if (transpositionTable.TryGetValue(newMetadata.State, out oldMetadata))
+                            if (transpositionTable.TryGetValue(newMetadata.State.GetHashTuple(), out oldMetadata))
                             {
-                                transpositionString = " is a transposition for " + string.Join("", oldMetadata.ToList().Select(i => i.Move));
+                                //transpositionString = " is a transposition for " + string.Join("", oldMetadata.ToList().Select(i => i.Move));
                             }
 
                             if (isBetterMove)
@@ -143,17 +160,73 @@ namespace Solver
                             }
                         }
 
-                        if (!transpositionTable.ContainsKey(newState.Item1))
+                        if (!transpositionTable.ContainsKey(newState.Item1.GetHashTuple()))
                         {
                             newMetadata.State.Board = newMetadata.State.Board.Clone();
                             priorityQueue.Push(newMetadata);
-                            transpositionTable[newMetadata.State] = newMetadata;
+                            transpositionTable[newMetadata.State] = null;
                         }
                     }
 
                     if (newState != null)
                     {
                         currentMetadata.State.Board.Undo(newState.Item2);
+                    }
+                }
+            }
+
+            throw new Exception("No moves found");
+        }
+
+        public static List<StateMetadata> PlanB(State state, bool debug)
+        {
+            string moves = "WASD";
+
+            var metadata = new StateMetadata()
+            {
+                State = state,
+                OriginalState = state
+            };
+
+            var transpositionTable = new Dictionary<State, StateMetadata>() { { state, metadata } };
+            var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
+                lhs.Depth == rhs.Depth ? CompareMetadata(lhs, rhs) : lhs.Depth < rhs.Depth);
+
+            priorityQueue.Push(metadata);
+
+            while (!priorityQueue.IsEmpty())
+            {
+                var currentMetadata = priorityQueue.Pop();
+                var currentBoard = currentMetadata.State.Board;
+                var currentPosition = currentMetadata.State.Position;
+
+                if (!currentBoard.IsWall(currentPosition) && !currentBoard.IsPainted(currentPosition))
+                {
+                    return currentMetadata.ToList();
+                }
+
+                foreach (var move in moves)
+                {
+                    var newState = currentMetadata.State.Move(move);
+
+                    if (newState != null)
+                    {
+                        var newMetadata = new StateMetadata()
+                        {
+                            State = newState.Item1,
+                            OriginalState = currentMetadata.OriginalState,
+                            Depth = currentMetadata.Depth + 1,
+                            Move = move.ToString(),
+                            PreviousState = currentMetadata
+                        };
+
+                        newMetadata.State.Board.Undo(newState.Item2);
+
+                        if (!transpositionTable.ContainsKey(newState.Item1))
+                        {
+                            priorityQueue.Push(newMetadata);
+                            transpositionTable[newMetadata.State] = null;
+                        }
                     }
                 }
             }
