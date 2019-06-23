@@ -192,7 +192,7 @@ namespace Solver
             }
         }
 
-        class PathState
+        public class PathState
         {
             public Point Point { get; set; }
             public int Depth { get; set; }
@@ -254,31 +254,82 @@ namespace Solver
             Point from,
             HashSet<Point> forbiddenPoints)
         {
-            var visited = new HashSet<Point>();
-            Func<PathState, int> score = (pathState) => pathState.Depth;
-            var queue = new PriorityQueue<PathState>((lhs, rhs) => score(lhs) > score(rhs));
+            var ans = BreadthFirstSearch(from,
+                (PathState path) => Point.AdjacentPoints.Any(p => IsWall(p + path.Point)),
+                (PathState path) => forbiddenPoints.Contains(path.Point));
+
+            return ans.ToList().Select(i => i.Point).ToList();
+            
+            //var visited = new HashSet<Point>();
+            //Func<PathState, int> score = (pathState) => pathState.Depth;
+            //var queue = new PriorityQueue<PathState>((lhs, rhs) => score(lhs) > score(rhs));
+            //queue.Push(new PathState() { Point = from });
+
+            //while (!queue.IsEmpty())
+            //{
+            //    var state = queue.Pop();
+            //    if (IsWall(state.Point) && state.Point != from)
+            //    {
+            //        return state.ToList().Select(i => i.Point).ToList();
+            //    }
+
+            //    foreach (var dir in Point.AdjacentPoints)
+            //    {
+            //        var newPoint = state.Point + dir;
+            //        if (!visited.Contains(newPoint) && !forbiddenPoints.Contains(newPoint))
+            //        {
+            //            visited.Add(newPoint);
+            //            queue.Push(new PathState()
+            //            {
+            //                Point = newPoint,
+            //                Depth = state.Depth + 1,
+            //                PreviousState = state
+            //            });
+            //        }
+            //    }
+            //}
+
+            //return null;
+        }
+
+        public PathState BreadthFirstSearch(
+            Point from,
+            Func<PathState, bool> func,
+            Func<PathState, bool> isForbidden = null)
+        {
+            if (isForbidden == null)
+            {
+                isForbidden = x => false;
+            }
+
+            var visited = new HashSet<Point>() { from };
+            var queue = new PriorityQueue<PathState>((lhs, rhs) => lhs.Depth > rhs.Depth);
             queue.Push(new PathState() { Point = from });
 
             while (!queue.IsEmpty())
             {
                 var state = queue.Pop();
-                if (IsWall(state.Point) && state.Point != from)
-                {
-                    return state.ToList().Select(i => i.Point).ToList();
-                }
 
                 foreach (var dir in Point.AdjacentPoints)
                 {
                     var newPoint = state.Point + dir;
-                    if (!visited.Contains(newPoint) && !forbiddenPoints.Contains(newPoint))
+
+                    var pathState = new PathState()
                     {
-                        visited.Add(newPoint);
-                        queue.Push(new PathState()
+                        Point = newPoint,
+                        Depth = state.Depth + 1,
+                        PreviousState = state
+                    };
+
+                    if (!visited.Contains(newPoint) && !isForbidden(pathState))
+                    { 
+                        if (func(pathState))
                         {
-                            Point = newPoint,
-                            Depth = state.Depth + 1,
-                            PreviousState = state
-                        });
+                            return pathState;
+                        }
+
+                        visited.Add(newPoint);
+                        queue.Push(pathState);
                     }
                 }
             }

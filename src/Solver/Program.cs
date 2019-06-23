@@ -130,6 +130,7 @@ namespace Solver
                     {
                         var newMetadata = new StateMetadata()
                         {
+                            Score = currentMetadata.OriginalState.UnpaintedCount - newState.Item1.UnpaintedCount,
                             State = newState.Item1,
                             OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
@@ -234,11 +235,6 @@ namespace Solver
             throw new Exception("No moves found");
         }
 
-        // Heuristics:
-        //    Maximize boosts collected.
-        //    Minimize nearby unpainted squares.
-        //    Minimize unpainted squares.
-        //
         private static bool CompareMetadata(StateMetadata lhs, StateMetadata rhs)
         {
             foreach (var metric in GetMetrics(lhs).Zip(GetMetrics(rhs), (l, r) => l - r))
@@ -252,11 +248,17 @@ namespace Solver
             return false;
         }
 
+        // Heuristics:
+        //    Maximize boosts collected.
+        //    Minimize nearby unpainted squares.
+        //    Maximize score unpainted squares.
+        //
         private static IEnumerable<int> GetMetrics(StateMetadata metadata)
         {
             yield return -metadata.State.BoostsCollected;
             yield return metadata.NearbyUnpaintedCells.Value;
             yield return metadata.State.UnpaintedCount;
+            //yield return -metadata.Score;
         }
 
         public static List<StateMetadata> ManipulatorPlan(State state)
@@ -279,6 +281,7 @@ namespace Solver
         public State State { get; set; }
         public State OriginalState { get; set; }
         public int Depth { get; set; }
+        public int Score { get; set; }
         public StateMetadata PreviousState { get; set; }
         public string Move { get; set; }
         public Lazy<int> ClosestUnpaintedCellDistance { get; private set; }
@@ -319,9 +322,9 @@ namespace Solver
             var paintedCells = 0;
             var board = State.Board;
 
-            foreach (var dy in Enumerable.Range(-3, 7))
+            foreach (var dy in Enumerable.Range(-1, 3))
             {
-                foreach (var dx in Enumerable.Range(-3, 7))
+                foreach (var dx in Enumerable.Range(1, 3))
                 {
                     var p = OriginalState.Position + new Point(dx, dy);
                     if (!board.IsWall(p) && !board.IsPainted(p))
