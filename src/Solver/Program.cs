@@ -10,7 +10,7 @@ namespace Solver
 {
     public class Program
     {
-        public const int MaxDepth = 4;
+        public const int MaxDepth = 2;
 
         static void Main(string[] args)
         {
@@ -18,7 +18,7 @@ namespace Solver
             if (debug)
             {
                 //args = new string[] { "puzzle", @"C:\Users\cashto\Documents\GitHub\icfp2019\work\puzzles\cashto.desc" };
-                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\block-8.desc" };
+                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-080.desc" };
             }
 
             if (args.Length == 2)
@@ -38,14 +38,33 @@ namespace Solver
 
         public static void Solve(State state, bool debug)
         {
+            var weights = new Dictionary<Point, int>();
+            var middle = new Point(state.Board.MaxX / 2, state.Board.MaxY / 2);
+            var startPoint = new Point();
+            foreach (var p in state.Board.AllPoints)
+            {
+                if (!state.Board.IsWall(p) && p.Distance(middle) < startPoint.Distance(middle))
+                {
+                    startPoint = p;
+                }
+            }
+
+            state.Board.BreadthFirstSearch(startPoint, (path) => 
+                {
+                    weights[path.Point] = path.Depth;
+                    return false;
+                });
+
+            state.Weights = weights;
+
             while (state.UnpaintedCount > 0)
             {
-                var planDebug = false;
+                var planDebug = true;
                 if (debug)
                 {
                     Console.WriteLine();
                     Console.WriteLine(state);
-                    //planDebug = Console.ReadKey().KeyChar == 'x';
+                    planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
                 var reallyUnpainted = state.Board.AllPoints.Count(p => !state.Board.IsWall(p) && !state.Board.IsPainted(p));
@@ -54,7 +73,7 @@ namespace Solver
                     ; // state.UnpaintedCount = reallyUnpainted;
                 }
 
-                var plan = Plan(state, planDebug);
+                var plan = Plan(state, planDebug && debug);
                 foreach (var i in plan.Take(Math.Max(MaxDepth, plan.Count)))
                 {
                     Console.Out.Write(i.Move);
@@ -92,6 +111,7 @@ namespace Solver
 
         public static List<StateMetadata> PlanA(State state, bool debug)
         {
+            var middle = new Point(state.Board.MaxX / 2, state.Board.MaxY / 2);
             string moves = "FLWASDQE";
             StateMetadata bestMove = null;
 
@@ -128,9 +148,16 @@ namespace Solver
 
                     if (newState != null)
                     {
+                        var undo = newState.Item2;
+                        var score = undo == null ? 0 : undo.Points.Sum(i => {
+                            var s = 0;
+                            newState.Item1.Weights.TryGetValue(i.Item1, out s);
+                            return s;
+                        });
+
                         var newMetadata = new StateMetadata()
                         {
-                            Score = currentMetadata.OriginalState.UnpaintedCount - newState.Item1.UnpaintedCount,
+                            Score = currentMetadata.Score + score,
                             State = newState.Item1,
                             OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
@@ -256,9 +283,9 @@ namespace Solver
         private static IEnumerable<int> GetMetrics(StateMetadata metadata)
         {
             yield return -metadata.State.BoostsCollected;
-            yield return metadata.NearbyUnpaintedCells.Value;
-            yield return metadata.State.UnpaintedCount;
-            //yield return -metadata.Score;
+            //yield return metadata.NearbyUnpaintedCells.Value;
+            //yield return metadata.State.UnpaintedCount;
+            yield return -metadata.Score;
         }
 
         public static List<StateMetadata> ManipulatorPlan(State state)
@@ -296,7 +323,7 @@ namespace Solver
         public override string ToString()
         {
             var moves = string.Join("", ToList().Select(i => i.Move));
-            return $"{moves} Depth={Depth} Remain={State.UnpaintedCount} Nearby={NearbyUnpaintedCells.Value}";
+            return $"{moves} Depth={Depth} Remain={State.UnpaintedCount} Score={Score}";
         }
 
         private int CalculateDistance()

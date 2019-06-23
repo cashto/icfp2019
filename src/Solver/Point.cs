@@ -50,7 +50,7 @@ namespace Solver
 
         public override int GetHashCode()
         {
-            return base.GetHashCode();
+            return X * 1000 + Y;
         }
 
         public static bool operator ==(Point lhs, Point rhs)

@@ -9,6 +9,7 @@ namespace Solver
 {
     public class State
     {
+        public Dictionary<Point, int> Weights { get; set; }
         public Board Board { get; set; }
         public int DrillTime { get; private set; }
         public int FastWheelsTime { get; private set; }
@@ -105,6 +106,7 @@ namespace Solver
         {
             return new State()
             {
+                Weights = Weights,
                 Board = Board,
                 DrillTime = DrillTime,
                 FastWheelsTime = FastWheelsTime,

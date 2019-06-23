@@ -130,7 +130,7 @@ namespace Solver
         {
             if (IsInBounds(p) && Map[p.X, p.Y] != c)
             {
-                undo.points.Add(Tuple.Create(p, Map[p.X, p.Y]));
+                undo.Points.Add(Tuple.Create(p, Map[p.X, p.Y]));
                 Map[p.X, p.Y] = c;
             }
         }
@@ -142,7 +142,7 @@ namespace Solver
                 return;
             }
 
-            var reversePoints = undo.points.ToList();
+            var reversePoints = undo.Points.ToList();
             reversePoints.Reverse();
 
             foreach (var i in reversePoints)
@@ -321,7 +321,7 @@ namespace Solver
                         PreviousState = state
                     };
 
-                    if (!visited.Contains(newPoint) && !isForbidden(pathState))
+                    if (!IsWall(newPoint) && !visited.Contains(newPoint) && !isForbidden(pathState))
                     { 
                         if (func(pathState))
                         {
@@ -340,7 +340,7 @@ namespace Solver
 
     public class BoardUndo
     {
-        internal List<Tuple<Point, char>> points = new List<Tuple<Point, char>>();
-        public int Count => points.Count;
+        public List<Tuple<Point, char>> Points = new List<Tuple<Point, char>>();
+        public int Count => Points.Count;
     }
 }
