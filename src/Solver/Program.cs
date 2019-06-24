@@ -24,7 +24,7 @@ namespace Solver
             if (debug)
             {
                 //args = new string[] { "puzzle", @"C:\Users\cashto\Documents\GitHub\icfp2019\work\puzzles\cashto.desc" };
-                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-151.desc" };
+                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-211.desc" };
             }
 
             if (args.Length == 2 && args[1] == "puzzle")
@@ -295,8 +295,18 @@ namespace Solver
             {
                 var move = $"L";
                 var altState = state.MultiMove(move);
-                var altPath = PlanB(altState, debug, (meta) => meta.State.Position == newState.Position);
-                if (altPath != null && altPath.Count + 10 < ans.Count)
+
+                var searchSucceeded = true;
+                var altPath = PlanB(altState, debug, (meta) => {
+                    if (meta.Depth == ans.Count)
+                    {
+                        searchSucceeded = false;
+                        return true;
+                    }
+                    return meta.State.Position == newState.Position;
+                });
+
+                if (altPath != null && searchSucceeded && altPath.Count + 10 < ans.Count)
                 {
                     ans = new List<string>() { move };
                     ans.AddRange(altPath);
@@ -307,8 +317,18 @@ namespace Solver
             {
                 var move = $"T{tele}";
                 var altState = state.MultiMove(move);
-                var altPath = PlanB(altState, debug, (meta) => meta.State.Position == newState.Position);
-                if (altPath != null && altPath.Count + 1 < ans.Count)
+                var searchSucceeded = true;
+
+                var altPath = PlanB(altState, debug, (meta) => {
+                    if (meta.Depth == ans.Count)
+                    {
+                        searchSucceeded = false;
+                        return true;
+                    }
+                    return meta.State.Position == newState.Position;
+                });
+
+                if (altPath != null && searchSucceeded && altPath.Count + 1 < ans.Count)
                 {
                     ans = new List<string>() { move };
                     ans.AddRange(altPath);
