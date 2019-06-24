@@ -239,6 +239,9 @@ namespace Solver
                     newState.Teleports = newState.Teleports.ToList();
                     newState.Teleports.Add(Position);
                     return Tuple.Create(newState, (BoardUndo)null);
+
+                case 'Z':
+                    return Tuple.Create(CloneNextStep(), (BoardUndo)null);
             }
 
             return null;

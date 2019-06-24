@@ -1,0 +1,1 @@
+(& python.exe ./lambda-cli.py getblockchaininfo | ConvertFrom-Json).block

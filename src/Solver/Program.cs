@@ -24,7 +24,7 @@ namespace Solver
             if (debug)
             {
                 //args = new string[] { "puzzle", @"C:\Users\cashto\Documents\GitHub\icfp2019\work\puzzles\cashto.desc" };
-                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-211.desc" };
+                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-031.desc" };
             }
 
             if (args.Length == 2 && args[1] == "puzzle")
@@ -43,8 +43,6 @@ namespace Solver
             {
                 foreach (var c in args[1])
                 {
-                    state.Boosts.Add(c);
-                    state.Boosts.Add(c);
                     state.Boosts.Add(c);
                 }
             }
@@ -287,7 +285,12 @@ namespace Solver
         {
             var board = state.Board.Clone();
 
-            var ans = PlanB(state, debug, (meta) => !meta.State.Board.IsWall(meta.State.Position) && !meta.State.Board.IsPainted(meta.State.Position));
+            var ans = PlanB(state, debug, (meta) => !board.IsWall(meta.State.Position) && !board.IsPainted(meta.State.Position));
+            if (ans == null)
+            {
+                return new List<string>() { "Z" };
+            }
+
             var newState = state.MultiMove(string.Join("", ans));
             state.Board = board;
 
