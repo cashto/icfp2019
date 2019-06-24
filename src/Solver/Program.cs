@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Data.SqlTypes;
 using System.Collections;
 using System.Data;
+using System.Runtime.InteropServices;
 
 namespace Solver
 {
@@ -41,6 +42,15 @@ namespace Solver
 
         public static void Solve(State state, bool debug)
         {
+            state.Priority[state.Position] = 0;
+            state.Board.BreadthFirstSearch(
+                state.Position,
+                (path) =>
+                {
+                    state.Priority[path.Point] = path.Depth;
+                    return false;
+                });
+
             var moves = 0;
             while (state.UnpaintedCount > 0)
             {
@@ -66,7 +76,7 @@ namespace Solver
             return
                 BoostPlan(state) ??
                 PlanC(state, debug) ??
-                PlanB(state, debug);
+                PlanB(state, debug, (b, p) => !b.IsWall(p) && !b.IsPainted(p));
         }
 
         public static List<string> PlanA(State state, bool debug)
@@ -75,11 +85,7 @@ namespace Solver
             string moves = "FWASDQE";
             StateMetadata bestMove = null;
 
-            var metadata = new StateMetadata()
-            {
-                State = state,
-                OriginalState = state
-            };
+            var metadata = new StateMetadata() { State = state };
 
             var transpositionTable = new Dictionary<object, StateMetadata>() { { state.GetHashTuple(), metadata } };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
@@ -94,7 +100,7 @@ namespace Solver
                 if (bestMove != null && bestMove.State.UnpaintedCount == 0 ||
                     currentMetadata.Depth >= MaxDepth)
                 {
-                    if (bestMove.State.UnpaintedCount == bestMove.OriginalState.UnpaintedCount)
+                    if (bestMove.State.UnpaintedCount == state.UnpaintedCount)
                     {
                         return null;
                     }
@@ -112,7 +118,6 @@ namespace Solver
                         {
                             Score = currentMetadata.State.UnpaintedCount - newState.Item1.UnpaintedCount,
                             State = newState.Item1,
-                            OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
                             Move = move.ToString(),
                             PreviousState = currentMetadata
@@ -151,23 +156,14 @@ namespace Solver
             throw new Exception("No moves found");
         }
 
-        public static List<string> PlanB(State state, bool debug, Func<Point, bool> isForbidden = null)
+        public static List<string> PlanB(State state, bool debug, Func<Board, Point, bool> terminatingCondition)
         {
-            if (isForbidden == null)
-            {
-                isForbidden = x => false;
-            }
-
             string moves = "WASD";
             var transpositionTable = new HashSet<Point>() { state.Position };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
                 lhs.Depth == rhs.Depth ? CompareMetadata(lhs, rhs) : lhs.Depth < rhs.Depth);
 
-            priorityQueue.Push(new StateMetadata()
-            {
-                State = state,
-                OriginalState = state
-            });
+            priorityQueue.Push(new StateMetadata() { State = state });
 
             while (!priorityQueue.IsEmpty())
             {
@@ -175,7 +171,7 @@ namespace Solver
                 var currentBoard = currentMetadata.State.Board;
                 var currentPosition = currentMetadata.State.Position;
 
-                if (!currentBoard.IsWall(currentPosition) && !currentBoard.IsPainted(currentPosition))
+                if (terminatingCondition(currentBoard, currentPosition))
                 {
                     return currentMetadata.ToList().Select(i => i.Move).ToList();
                 }
@@ -184,12 +180,11 @@ namespace Solver
                 {
                     var newState = currentMetadata.State.Move(move);
 
-                    if (newState != null && !isForbidden(newState.Item1.Position))
+                    if (newState != null)
                     {
                         var newMetadata = new StateMetadata()
                         {
                             State = newState.Item1,
-                            OriginalState = currentMetadata.OriginalState,
                             Depth = currentMetadata.Depth + 1,
                             Move = move.ToString(),
                             PreviousState = currentMetadata
@@ -219,29 +214,58 @@ namespace Solver
 
         public static List<string> PlanCImpl(State state, bool debug)
         {
+            var section = new List<Point>();
             state.Board.BreadthFirstSearch(
                 state.Position,
-                (path) =>
+                (p) =>
                 {
-                    state.VisitedNearby.Add(path.Point);
-                    return path.Depth < 4;
+                    if (!state.Board.IsPainted(p.Point))
+                    {
+                        section.Add(p.Point);
+                    }
+
+                    return p.Depth == 10;
                 });
 
-            var ans = PlanA(state, debug);
-            if (ans == null)
+            var ans = new List<string>();
+            while (section.Any(p => !state.Board.IsPainted(p)))
             {
-                return null;
+                var planA = PlanA(state, debug);
+                if (planA != null)
+                {
+                    ans.AddRange(planA);
+                    state = state.MultiMove(string.Join("", planA));
+                }
+
+                List<string> planB = null;
+                if (!section.Contains(state.Position))
+                {
+                    var unpaintedSection = section.Where(p => !state.Board.IsPainted(p)).ToList();
+                    planB = PlanB(state, debug, (b, p) => unpaintedSection.Contains(p));
+
+                    if (planB != null)
+                    {
+                        ans.AddRange(planB);
+                        state = state.MultiMove(string.Join("", planB));
+                    }
+                }
+
+                if (planA == null && planB == null)
+                {
+                    break;
+                }
             }
 
-            state = state.MultiMove(string.Join("", ans));
+            return ans.Any() ? ans : null;
+        }
 
-            var returnPath = PlanB(state, debug, (p) => !state.VisitedNearby.Contains(p));
-            if (returnPath != null)
-            {
-                ans.AddRange(returnPath);
-            }
-
-            return ans;
+        private static bool IsAbandoned(Board board, Point p)
+        {
+            int count = 0;
+            return board.BreadthFirstSearch(
+                p,
+                (path) => ++count == 5,
+                (path) => board.IsPainted(path.Point)) == null;
         }
 
         private static Point GetClosestPoint(Point target, IEnumerable<Point> points)
@@ -303,7 +327,6 @@ namespace Solver
     public class StateMetadata
     {
         public State State { get; set; }
-        public State OriginalState { get; set; }
         public int Depth { get; set; }
         public int Score { get; set; }
         public StateMetadata PreviousState { get; set; }

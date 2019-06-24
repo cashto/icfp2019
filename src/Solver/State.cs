@@ -9,7 +9,7 @@ namespace Solver
 {
     public class State
     {
-        public HashSet<Point> VisitedNearby { get; set; }
+        public Dictionary<Point, int> Priority { get; set; }
         public Board Board { get; set; }
         public int DrillTime { get; private set; }
         public int FastWheelsTime { get; private set; }
@@ -61,7 +61,7 @@ namespace Solver
 
             UnpaintedCount = Board.AllPoints.Count(p => !Board.IsWall(p) && !Board.IsPainted(p));
 
-            VisitedNearby = new HashSet<Point>();
+            Priority = new Dictionary<Point, int>();
         }
 
         public override bool Equals(object obj)
@@ -117,7 +117,7 @@ namespace Solver
                 Boosts = Boosts,
                 UnpaintedCount = UnpaintedCount,
                 BoostsCollected = BoostsCollected,
-                VisitedNearby = VisitedNearby
+                Priority = Priority
             };
         }
 

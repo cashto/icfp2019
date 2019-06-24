@@ -336,6 +336,51 @@ namespace Solver
 
             return null;
         }
+
+        public PathState DepthFirstSearch(
+            Point from,
+            Func<PathState, bool> func,
+            Func<PathState, bool> isForbidden = null)
+        {
+            if (isForbidden == null)
+            {
+                isForbidden = x => false;
+            }
+
+            var visited = new HashSet<Point>() { from };
+            var stack = new Stack<PathState>();
+            stack.Push(new PathState() { Point = from });
+
+            while (stack.Any())
+            {
+                var state = stack.Pop();
+
+                foreach (var dir in Point.AdjacentPoints)
+                {
+                    var newPoint = state.Point + dir;
+
+                    var pathState = new PathState()
+                    {
+                        Point = newPoint,
+                        Depth = state.Depth + 1,
+                        PreviousState = state
+                    };
+
+                    if (!IsWall(newPoint) && !visited.Contains(newPoint) && !isForbidden(pathState))
+                    {
+                        if (func(pathState))
+                        {
+                            return pathState;
+                        }
+
+                        visited.Add(newPoint);
+                        stack.Push(pathState);
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 
     public class BoardUndo
