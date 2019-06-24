@@ -10,6 +10,7 @@ using System.Collections;
 using System.Data;
 using System.Runtime.InteropServices;
 using System.CodeDom;
+using System.IO.Pipes;
 
 namespace Solver
 {
@@ -38,11 +39,17 @@ namespace Solver
 
             var state = new State(desc);
 
+            state.Boosts.Add(Board.Teleport);
+            state.Boosts.Add(Board.Teleport);
+            state.Boosts.Add(Board.Teleport);
+
             Solve(state, debug);
         }
 
         public static void Solve(State state, bool debug)
         {
+            State.OriginalUnpaintedCount = state.UnpaintedCount;
+
             state.Priority[state.Position] = 0;
             state.Board.BreadthFirstSearch(
                 state.Position,
@@ -77,7 +84,7 @@ namespace Solver
             return
                 BoostPlan(state) ??
                 PlanA(state, debug) ??
-                PlanB(state, debug, (b, p) => !b.IsWall(p) && !b.IsPainted(p));
+                PlanD(state, debug);
         }
 
         public static List<string> PlanA(State state, bool debug)
@@ -164,14 +171,15 @@ namespace Solver
             return point.AdjacentPoints().Count(p => board.IsWall(p));
         }
 
-        public static List<string> PlanB(State state, bool debug, Func<Board, Point, bool> terminatingCondition)
+        public static List<string> PlanB(State state, bool debug, Func<StateMetadata, bool> terminatingCondition)
         {
             string moves = "WASD";
             var transpositionTable = new HashSet<Point>() { state.Position };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
                 lhs.Depth == rhs.Depth ? CompareMetadata(lhs, rhs) : lhs.Depth < rhs.Depth);
 
-            priorityQueue.Push(new StateMetadata() { State = state });
+            var initialState = new StateMetadata() { State = state };
+            priorityQueue.Push(initialState);
 
             while (!priorityQueue.IsEmpty())
             {
@@ -179,7 +187,7 @@ namespace Solver
                 var currentBoard = currentMetadata.State.Board;
                 var currentPosition = currentMetadata.State.Position;
 
-                if (terminatingCondition(currentBoard, currentPosition))
+                if (terminatingCondition(currentMetadata))
                 {
                     return currentMetadata.ToList().Select(i => i.Move).ToList();
                 }
@@ -251,7 +259,7 @@ namespace Solver
                 .FirstOrDefault();
             if (sections.Count > 1)
             {
-                var planB = PlanB(state, debug, (b, p) => smallestSection.Contains(p));
+                var planB = PlanB(state, debug, (meta) => smallestSection.Contains(meta.State.Position));
                 if (planB != null)
                 {
                     ans.AddRange(planB);
@@ -259,6 +267,41 @@ namespace Solver
             }
 
             return ans.Any() ? ans : null;
+        }
+
+        public static List<string> PlanD(State state, bool debug)
+        {
+            var board = state.Board.Clone();
+
+            var ans = PlanB(state, debug, (meta) => !meta.State.Board.IsWall(meta.State.Position) && !meta.State.Board.IsPainted(meta.State.Position));
+            var newState = state.MultiMove(string.Join("", ans));
+            state.Board = board;
+
+            if (state.Boosts.Contains(Board.Drill))
+            {
+                var move = $"L";
+                var altState = state.MultiMove(move);
+                var altPath = PlanB(altState, debug, (meta) => meta.State.Position == newState.Position);
+                if (altPath != null && altPath.Count + 10 < ans.Count)
+                {
+                    ans = new List<string>() { move };
+                    ans.AddRange(altPath);
+                }
+            }
+
+            foreach (var tele in state.Teleports)
+            {
+                var move = $"T{tele}";
+                var altState = state.MultiMove(move);
+                var altPath = PlanB(altState, debug, (meta) => meta.State.Position == newState.Position);
+                if (altPath != null && altPath.Count + 1 < ans.Count)
+                {
+                    ans = new List<string>() { move };
+                    ans.AddRange(altPath);
+                }
+            }
+
+            return ans;
         }
 
         private static bool IsAbandoned(Board board, Point p)
@@ -310,6 +353,7 @@ namespace Solver
 
         public static List<string> BoostPlan(State state)
         {
+            // Add manipulator if we got one.
             if (state.Boosts.Contains(Board.Manipulator))
             {
                 var y = (state.Robot.Count + 1) / 2 * (state.Robot.Count % 2 == 0 ? -1 : 1);
@@ -320,6 +364,44 @@ namespace Solver
                 }
 
                 return new List<string>() { "B" + point.ToString() };
+            }
+
+            // Find any manipulators or teleports within a certain range
+            var foundBoost = false;
+            var plan = PlanB(state, false, (meta) =>
+            {
+                if ("BR".Contains(meta.State.Board.Get(meta.State.Position)))
+                {
+                    foundBoost = true;
+                }
+
+                return foundBoost || meta.Depth == 20;
+            });
+
+            if (foundBoost)
+            {
+                return plan;
+            }
+
+            // Maybe place a teleport?
+            var maxX = state.Board.MaxX;
+            var maxY = state.Board.MaxY;
+            var position = state.Position;
+            var n = state.Teleports.Count + 1;
+            var d = state.Teleports.Count + 3;
+            var size = new Point(n * maxX / d, n * maxY / d);
+            var p1 = new Point((maxX - size.X) / 2, (maxY - size.Y) / 2);
+            var p2 = p1 + size;
+
+            var inCenter =
+                position.X >= p1.X && position.X < p2.X &&
+                position.Y >= p1.Y && position.Y < p2.Y;
+
+            if (inCenter &&
+                state.Boosts.Contains(Board.Teleport) &&
+                state.Teleports.All(tele => position.Distance(tele) > 1 * (maxX + maxY) / 6))
+            {
+                return new List<string>() { "R" };
             }
 
             return null;

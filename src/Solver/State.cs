@@ -9,6 +9,9 @@ namespace Solver
 {
     public class State
     {
+        public static int OriginalUnpaintedCount { get; set; }
+
+        public List<Point> Teleports { get; set; }
         public Dictionary<Point, int> Priority { get; set; }
         public Board Board { get; set; }
         public int DrillTime { get; private set; }
@@ -62,6 +65,8 @@ namespace Solver
             UnpaintedCount = Board.AllPoints.Count(p => !Board.IsWall(p) && !Board.IsPainted(p));
 
             Priority = new Dictionary<Point, int>();
+
+            Teleports = new List<Point>();
         }
 
         public override bool Equals(object obj)
@@ -117,7 +122,8 @@ namespace Solver
                 Boosts = Boosts,
                 UnpaintedCount = UnpaintedCount,
                 BoostsCollected = BoostsCollected,
-                Priority = Priority
+                Priority = Priority,
+                Teleports = Teleports
             };
         }
 
@@ -142,7 +148,14 @@ namespace Solver
             var c = s[0];
             s = s.Substring(1);
 
-            if (c == Board.Manipulator)
+            if (c == 'T')
+            {
+                var point = ParsePoint(s);
+                s = point.Item2;
+                newState = CloneNextStep();
+                newState.Position = point.Item1;
+            }
+            else if (c == Board.Manipulator)
             {
                 var point = ParsePoint(s);
                 s = point.Item2;
@@ -214,7 +227,18 @@ namespace Solver
                     newState.Boosts.Remove(Board.Drill);
                     return Tuple.Create(newState, undo);
 
-                //case 'R': // teleport
+                case 'R': // teleport
+                    if (!Boosts.Any(i => i == Board.Teleport))
+                    {
+                        return null;
+                    }
+
+                    newState = CloneNextStep();
+                    newState.Boosts = newState.Boosts.ToList();
+                    newState.Boosts.Remove(Board.Teleport);
+                    newState.Teleports = newState.Teleports.ToList();
+                    newState.Teleports.Add(Position);
+                    return Tuple.Create(newState, (BoardUndo)null);
             }
 
             return null;
