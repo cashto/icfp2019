@@ -9,6 +9,7 @@ using System.Data.SqlTypes;
 using System.Collections;
 using System.Data;
 using System.Runtime.InteropServices;
+using System.CodeDom;
 
 namespace Solver
 {
@@ -214,18 +215,20 @@ namespace Solver
 
         public static List<string> PlanCImpl(State state, bool debug)
         {
+            var cellSize = 10;
+            var cell = new Point((state.Position.X / cellSize) * cellSize, (state.Position.Y / cellSize) * cellSize);
+
             var section = new List<Point>();
             state.Board.BreadthFirstSearch(
                 state.Position,
-                (p) =>
+                (path) =>
                 {
-                    if (!state.Board.IsPainted(p.Point))
-                    {
-                        section.Add(p.Point);
-                    }
-
-                    return p.Depth == 10;
-                });
+                    section.Add(path.Point);
+                    return false;
+                },
+                (path) => 
+                    path.Point.X < cell.X || path.Point.X >= cell.X + cellSize ||
+                    path.Point.Y < cell.Y || path.Point.Y >= cell.Y + cellSize);
 
             var ans = new List<string>();
             while (section.Any(p => !state.Board.IsPainted(p)))
@@ -238,7 +241,7 @@ namespace Solver
                 }
 
                 List<string> planB = null;
-                if (!section.Contains(state.Position))
+                if (planA == null || !section.Contains(state.Position))
                 {
                     var unpaintedSection = section.Where(p => !state.Board.IsPainted(p)).ToList();
                     planB = PlanB(state, debug, (b, p) => unpaintedSection.Contains(p));
