@@ -24,10 +24,10 @@ namespace Solver
             if (debug)
             {
                 //args = new string[] { "puzzle", @"C:\Users\cashto\Documents\GitHub\icfp2019\work\puzzles\cashto.desc" };
-                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-080.desc" };
+                args = new string[] { @"C:\Users\cashto\Documents\GitHub\icfp2019\problems\prob-151.desc" };
             }
 
-            if (args.Length == 2)
+            if (args.Length == 2 && args[1] == "puzzle")
             {
                 GenerateMap.GoMain(args[1]);
                 return;
@@ -39,9 +39,15 @@ namespace Solver
 
             var state = new State(desc);
 
-            state.Boosts.Add(Board.Teleport);
-            state.Boosts.Add(Board.Teleport);
-            state.Boosts.Add(Board.Teleport);
+            if (args.Length == 2)
+            {
+                foreach (var c in args[1])
+                {
+                    state.Boosts.Add(c);
+                    state.Boosts.Add(c);
+                    state.Boosts.Add(c);
+                }
+            }
 
             Solve(state, debug);
         }
@@ -68,7 +74,7 @@ namespace Solver
                     Console.WriteLine();
                     Console.WriteLine($"{moves} {state}");
                     //Console.WriteLine(state.Board);
-                    planDebug = Console.ReadKey().KeyChar == 'x';
+                    //planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
                 var plan = Plan(state, planDebug && debug);
@@ -93,7 +99,7 @@ namespace Solver
             string moves = "FWASDQE";
             StateMetadata bestMove = null;
 
-            var metadata = new StateMetadata() { State = state };
+            var metadata = new StateMetadata() { State = state, Redo = new BoardUndo(), Debug = state.Board.Clone() };
 
             var transpositionTable = new Dictionary<object, StateMetadata>() { { state.GetHashTuple(), metadata } };
             var priorityQueue = new PriorityQueue<StateMetadata>((rhs, lhs) =>
@@ -116,18 +122,24 @@ namespace Solver
                     return bestMove.ToList().Select(i => i.Move).ToList();
                 }
 
+                var undoBase = currentMetadata.State.Board.Redo(currentMetadata.Redo);
+                //currentMetadata.State.Board.Compare(currentMetadata.Debug);
+
                 foreach (var move in moves.Where(m => currentMetadata.Depth == 0 || m != 'F' && m != 'L'))
                 {
-                    var newState = currentMetadata.State.Move(move);
+                    var afterMove = currentMetadata.State.Move(move);
 
-                    if (newState != null)
+                    if (afterMove != null)
                     {
-                        var newPoints = newState.Item2 == null ? 0 : newState.Item2.Points.Sum(p => 1 + GetWallCount(state.Board, p.Item1));
+                        var newState = afterMove.Item1;
+                        var undoMove = afterMove.Item2;
+
+                        var newPoints = undoMove == null ? 0 : undoMove.Points.Sum(p => 1 + GetWallCount(state.Board, p.Item1));
 
                         var newMetadata = new StateMetadata()
                         {
                             Score = currentMetadata.Score + newPoints,
-                            State = newState.Item1,
+                            State = newState,
                             Depth = currentMetadata.Depth + 1,
                             Move = move.ToString(),
                             PreviousState = currentMetadata
@@ -148,19 +160,21 @@ namespace Solver
                             }
                         }
 
-                        if (!transpositionTable.ContainsKey(newState.Item1.GetHashTuple()))
+                        if (!transpositionTable.ContainsKey(newState.GetHashTuple()))
                         {
-                            newMetadata.State.Board = newMetadata.State.Board.Clone();
+                            //newMetadata.Debug = state.Board.Clone();
+                            newMetadata.Redo = new BoardUndo();
+                            newMetadata.Redo.Points.AddRange(currentMetadata.Redo.Points);
+                            newMetadata.Redo.Points.AddRange(state.Board.GetRedo(undoMove).Points);
                             priorityQueue.Push(newMetadata);
                             transpositionTable[newMetadata.State] = null;
                         }
-                    }
 
-                    if (newState != null)
-                    {
-                        currentMetadata.State.Board.Undo(newState.Item2);
+                        currentMetadata.State.Board.Undo(undoMove);
                     }
                 }
+
+                currentMetadata.State.Board.Undo(undoBase);
             }
 
             throw new Exception("No moves found");
@@ -415,6 +429,8 @@ namespace Solver
         public int Score { get; set; }
         public StateMetadata PreviousState { get; set; }
         public string Move { get; set; }
+        public BoardUndo Redo { get; set; }
+        public Board Debug { get; set; }
 
         public StateMetadata()
         {

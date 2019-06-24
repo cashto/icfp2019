@@ -281,7 +281,7 @@ namespace Solver
             {
                 Board.Set(newPosition, Board.Empty, undo);
             }
-            else if ("BFL".Contains(item))
+            else if ("BFLR".Contains(item))
             {
                 Boosts = Boosts.ToList();
                 Boosts.Add(item);

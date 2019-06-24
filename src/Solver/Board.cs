@@ -151,6 +151,40 @@ namespace Solver
             }
         }
 
+        public BoardUndo GetRedo(BoardUndo undo)
+        {
+            var ans = new BoardUndo();
+            if (undo != null)
+            {
+                ans.Points = undo.Points
+                    .Select(p => Tuple.Create(p.Item1, Map[p.Item1.X, p.Item1.Y]))
+                    .ToList();
+            }
+
+            return ans;
+        }
+
+        public void Compare(Board other)
+        {
+            foreach (var p in AllPoints)
+            {
+                if (Map[p.X, p.Y] != other.Map[p.X, p.Y])
+                {
+                    throw new Exception();
+                }
+            }
+        }
+
+        public BoardUndo Redo(BoardUndo undo)
+        {
+            var ans = new BoardUndo();
+            foreach (var i in undo.Points)
+            {
+                Set(i.Item1, i.Item2, ans);
+            }
+            return ans;
+        }
+
         public bool IsWall(Point p)
         {
             return Get(p) == Wall;
