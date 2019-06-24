@@ -76,7 +76,7 @@ namespace Solver
         {
             return
                 BoostPlan(state) ??
-                PlanC(state, debug) ??
+                PlanA(state, debug) ??
                 PlanB(state, debug, (b, p) => !b.IsWall(p) && !b.IsPainted(p));
         }
 
@@ -115,9 +115,11 @@ namespace Solver
 
                     if (newState != null)
                     {
+                        var newPoints = newState.Item2 == null ? 0 : newState.Item2.Points.Sum(p => 1 + GetWallCount(state.Board, p.Item1));
+
                         var newMetadata = new StateMetadata()
                         {
-                            Score = currentMetadata.State.UnpaintedCount - newState.Item1.UnpaintedCount,
+                            Score = currentMetadata.Score + newPoints,
                             State = newState.Item1,
                             Depth = currentMetadata.Depth + 1,
                             Move = move.ToString(),
@@ -155,6 +157,11 @@ namespace Solver
             }
 
             throw new Exception("No moves found");
+        }
+
+        private static int GetWallCount(Board board, Point point)
+        {
+            return point.AdjacentPoints().Count(p => board.IsWall(p));
         }
 
         public static List<string> PlanB(State state, bool debug, Func<Board, Point, bool> terminatingCondition)

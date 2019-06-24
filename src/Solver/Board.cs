@@ -231,9 +231,8 @@ namespace Solver
                     return state.Select(i => i.Point);
                 }
 
-                foreach (var dir in Point.AdjacentPoints)
+                foreach (var newPoint in state.Point.AdjacentPoints())
                 {
-                    var newPoint = state.Point + dir;
                     if (!IsWall(newPoint) && !visited.Contains(newPoint))
                     {
                         visited.Add(newPoint);
@@ -255,7 +254,7 @@ namespace Solver
             HashSet<Point> forbiddenPoints)
         {
             var ans = BreadthFirstSearch(from,
-                (PathState path) => Point.AdjacentPoints.Any(p => IsWall(p + path.Point)),
+                (PathState path) => path.Point.AdjacentPoints().Any(IsWall),
                 (PathState path) => forbiddenPoints.Contains(path.Point));
 
             return ans.Select(i => i.Point);
@@ -310,10 +309,8 @@ namespace Solver
             {
                 var state = queue.Pop();
 
-                foreach (var dir in Point.AdjacentPoints)
+                foreach (var newPoint in state.Point.AdjacentPoints())
                 {
-                    var newPoint = state.Point + dir;
-
                     var pathState = new PathState()
                     {
                         Point = newPoint,
@@ -355,10 +352,8 @@ namespace Solver
             {
                 var state = stack.Pop();
 
-                foreach (var dir in Point.AdjacentPoints)
+                foreach (var newPoint in state.Point.AdjacentPoints())
                 {
-                    var newPoint = state.Point + dir;
-
                     var pathState = new PathState()
                     {
                         Point = newPoint,

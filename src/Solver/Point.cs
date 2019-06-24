@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,13 +9,19 @@ namespace Solver
 { 
     public struct Point
     {
-        public static readonly List<Point> AdjacentPoints = new List<Point>()
+        private static readonly List<Point> adjacentPoints = new List<Point>()
         {
             new Point(1, 0),
             new Point(0, -1),
             new Point(-1, 0),
             new Point(0, 1)
         };
+
+        public IEnumerable<Point> AdjacentPoints()
+        {
+            var me = this;
+            return adjacentPoints.Select(dir => dir + me);
+        }
 
         public Point(int x, int y)
         {
@@ -80,7 +87,7 @@ namespace Solver
 
         public Point AdjacentPoint(int direction)
         {
-            return this + AdjacentPoints[direction % 4];
+            return this + adjacentPoints[direction % 4];
         }
 
         public int X { get; set; }

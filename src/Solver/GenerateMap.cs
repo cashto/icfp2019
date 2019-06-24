@@ -102,7 +102,7 @@ namespace Solver
             {
                 var allowedPoints = board.AllPoints
                     .Where(p => !spec.IncludePoints.Contains(p))
-                    .Where(p => !board.IsWall(p) && Point.AdjacentPoints.Any(dir => board.IsWall(p + dir)))
+                    .Where(p => !board.IsWall(p) && p.AdjacentPoints().Any(board.IsWall))
                     .ToList();
 
                 while (allowedPoints.Any())
@@ -113,8 +113,8 @@ namespace Solver
                     var undo = new BoardUndo();
                     board.Set(chosenPoint, Board.Wall, undo);
 
-                    if (Point.AdjacentPoints.All(dir =>
-                        board.IsWall(chosenPoint + dir) || board.PathFind(chosenPoint + dir, middle) != null))
+                    if (chosenPoint.AdjacentPoints().All(p =>
+                        board.IsWall(p) || board.PathFind(p, middle) != null))
                     {
                         break;
                     }
