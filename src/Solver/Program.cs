@@ -61,7 +61,7 @@ namespace Solver
                     Console.WriteLine();
                     Console.WriteLine($"{moves} {state}");
                     //Console.WriteLine(state.Board);
-                    //planDebug = Console.ReadKey().KeyChar == 'x';
+                    planDebug = Console.ReadKey().KeyChar == 'x';
                 }
 
                 var plan = Plan(state, planDebug && debug);
@@ -215,47 +215,39 @@ namespace Solver
 
         public static List<string> PlanCImpl(State state, bool debug)
         {
-            var cellSize = 10;
-            var cell = new Point((state.Position.X / cellSize) * cellSize, (state.Position.Y / cellSize) * cellSize);
-
-            var section = new List<Point>();
-            state.Board.BreadthFirstSearch(
-                state.Position,
-                (path) =>
-                {
-                    section.Add(path.Point);
-                    return false;
-                },
-                (path) => 
-                    path.Point.X < cell.X || path.Point.X >= cell.X + cellSize ||
-                    path.Point.Y < cell.Y || path.Point.Y >= cell.Y + cellSize);
-
             var ans = new List<string>();
-            while (section.Any(p => !state.Board.IsPainted(p)))
+
+            var planA = PlanA(state, debug);
+            if (planA != null)
             {
-                var planA = PlanA(state, debug);
-                if (planA != null)
+                ans.AddRange(planA);
+                state = state.MultiMove(string.Join("", planA));
+            }
+
+            var sections = new List<HashSet<Point>>();
+            foreach (var point in state.Board.AllPoints.Where(p => !state.Board.IsWall(p)))
+            {
+                if (!state.Board.IsPainted(point) && 
+                    !sections.Any(section => section.Contains(point)))
                 {
-                    ans.AddRange(planA);
-                    state = state.MultiMove(string.Join("", planA));
+                    var newSection = new HashSet<Point>() { point };
+                    state.Board.BreadthFirstSearch(point,
+                        (path) => { newSection.Add(path.Point); return false; },
+                        (path) => state.Board.IsWall(path.Point) || state.Board.IsPainted(path.Point));
+                    sections.Add(newSection);
                 }
+            }
 
-                List<string> planB = null;
-                if (planA == null || !section.Contains(state.Position))
+            var smallestSection = sections
+                .OrderBy(section => section.Count)
+                .ThenBy(section => state.Position.Distance(section.First()))
+                .FirstOrDefault();
+            if (sections.Count > 1)
+            {
+                var planB = PlanB(state, debug, (b, p) => smallestSection.Contains(p));
+                if (planB != null)
                 {
-                    var unpaintedSection = section.Where(p => !state.Board.IsPainted(p)).ToList();
-                    planB = PlanB(state, debug, (b, p) => unpaintedSection.Contains(p));
-
-                    if (planB != null)
-                    {
-                        ans.AddRange(planB);
-                        state = state.MultiMove(string.Join("", planB));
-                    }
-                }
-
-                if (planA == null && planB == null)
-                {
-                    break;
+                    ans.AddRange(planB);
                 }
             }
 
