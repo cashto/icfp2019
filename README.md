@@ -43,7 +43,7 @@ Coins earned in this mini-contest could be used to buy additional powerups for t
 
 # Results
 
-The performance in the lightning round was mediocre. Old Blue Eyes was only [able to solve 136 problems(https://github.com/cashto/icfp2019/blob/master/lightning_scores.csv) -- basically, all the maps up to 100 x 100 in size.  However even on some of these maps, Old Blue Eyes would run out of memory and crash.
+The performance in the lightning round was mediocre. Old Blue Eyes was only [able to solve 136 problems](https://github.com/cashto/icfp2019/blob/master/lightning_scores.csv) -- basically, all the maps up to 100 x 100 in size.  However even on some of these maps, Old Blue Eyes would run out of memory and crash.
 
 Because this is a functional programming contest, my natural tendency is to program in the functional style -- for the Move() function to return a new state, rather than to mutate the current state.  This year I started off not doing that, since maps were up to 400 x 400 in size and so ain't nobody got time to copy 160KB of data each move when only a few cells are changing, especially when you end up putting a few thousand of these things in a priority queue for best-first or breadth-first search -- pretty soon you're talking real memory.
 
