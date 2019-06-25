@@ -14,7 +14,7 @@ The contest problem was to program a glorified Roomba.  Teams submitted traces o
 * Teleport: ability to drop a teleport at the current location, and come back to it later on in a single move, as many times as desired.
 * Clone: ability to create a new robot at specially designated spawn points.
 
-Also during day two and three, there was a mini-contest where teams could earn virtual coins by solving maps posted online.  Each map would be available for for between 15 and 30 minutes (depending on how many submissions it received from other teams).  Teams were also required to propose a new map along with their submission; one of these maps would be chosen for the next round. 
+Also during day two and three, there was a mini-contest where teams could earn virtual coins by solving maps posted online.  Each map would be available for between 15 and 30 minutes (depending on how many submissions it received from other teams).  Teams were also required to propose a new map along with their submission; one of these maps would be chosen for the next round. 
 
 Coins earned in this mini-contest could be used to buy additional powerups for the main contest, with unused coins would be added to the final score.
 
@@ -23,7 +23,7 @@ Coins earned in this mini-contest could be used to buy additional powerups for t
 * BoostPlan
     * Is there a manipulator powerup in hand?  If so, attach it either to the left or the right of the existing manipulator arms, always forming a straight line.
     * Is there a manipulator or teleport powerup within 20 moves?  If so, head straight for it.
-    * Is there a teleport manipulator in hand, we are near the center of the board, and at least half a board away from another teleport?  If so, place it.
+    * Is there a teleport powerup in hand, we are near the center of the board, and at least half a board away from another teleport?  If so, place it.
 * Plan A
     * Otherwise, search all sequences of 4 moves (up, down, left, right, rotate, add fast wheels) and pick the sequence that maximizes number of powerups collected, followed by maximizing the number of cells painted.
         * This generally resulted in Fast Wheels powerups being played shortly after being picked up.   
