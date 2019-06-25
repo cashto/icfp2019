@@ -43,13 +43,13 @@ Coins earned in this mini-contest could be used to buy additional powerups for t
 
 # Results
 
-The performance in the lightning round was mediocre. Old Blue Eyes was only able to solve 136 problems -- basically, all the maps up to 100 x 100 in size.  However even on some of these maps, Old Blue Eyes would run out of memory and crash.
+The performance in the lightning round was mediocre. Old Blue Eyes was only [able to solve 136 problems(https://github.com/cashto/icfp2019/blob/master/lightning_scores.csv)]( -- basically, all the maps up to 100 x 100 in size.  However even on some of these maps, Old Blue Eyes would run out of memory and crash.
 
 Because this is a functional programming contest, my natural tendency is to program in the functional style -- for the Move() function to return a new state, rather than to mutate the current state.  This year I started off not doing that, since maps were up to 400 x 400 in size and so ain't nobody got time to copy 160KB of data each move when only a few cells are changing, especially when you end up putting a few thousand of these things in a priority queue for best-first or breadth-first search -- pretty soon you're talking real memory.
 
 So State.Move() would return a new State, but both States (the initial and derived one) would point to the same Board.  Move() would also return an "undo list" which could be used to revert the state. It was tricky to keep everything straight in this model, and for a while I wondered if I had made the right tradeoff -- especially initially when I used Board.Clone() liberally. But towards the end I was able to rip out these Clone() calls, resulting in a massive improvement in performance.
 
-Old Blue Eues was able to solve all of the problems in the full round.  It took about 25 minutes to solve all the problems on an 8-core VM.  I also repeated the solution with an extra teleport or manipulator powerup at the beginning.
+Old Blue Eues was [able to solve all of the problems in the full round](https://github.com/cashto/icfp2019/blob/master/final_scores.csv) \[[Zipped solutions](https://github.com/cashto/icfp2019/blob/master/final_solutions.zip)].  It took about 25 minutes to solve all the problems on an 8-core VM.  I also repeated the solution with an extra teleport or manipulator powerup at the beginning.
 
 * Extra teleport: improved 238 problems, average improvement 1.8%, best improvement 11.8% (prob-16).
 * Extra manipulator: improved 268 problems, average improvement 5.2%. best improvement 19.5% (prob-070).
